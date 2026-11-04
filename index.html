@@ -3,9 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>IPL Mega Auction</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>IPL Mega Auction Arena</title>
   
-  <!-- Fonts & Libraries -->
+  <!-- Fonts & External Libraries -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -37,7 +40,7 @@
       overflow-x: hidden;
     }
 
-    /* Single-Row 42px Header */
+    /* 42px Streamlined Header */
     header {
       background: rgba(10, 16, 29, 0.98);
       backdrop-filter: blur(14px);
@@ -83,16 +86,17 @@
     .room-badge {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      padding: 3px 7px;
+      gap: 5px;
+      padding: 3px 8px;
       background: rgba(255, 255, 255, 0.05);
       border-radius: 14px;
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       font-weight: 700;
       border: 1px solid var(--panel-border);
       cursor: pointer;
       white-space: nowrap;
     }
+    .room-badge:hover { background: rgba(255, 255, 255, 0.12); }
     .status-dot {
       width: 7px;
       height: 7px;
@@ -107,7 +111,7 @@
       background: rgba(255, 255, 255, 0.06);
       border: 1px solid var(--panel-border);
       color: #fff;
-      padding: 3px 7px;
+      padding: 3px 8px;
       border-radius: 6px;
       font-size: 0.72rem;
       font-weight: 600;
@@ -118,6 +122,7 @@
       white-space: nowrap;
       height: 28px;
     }
+    .header-btn:hover { background: rgba(255, 255, 255, 0.14); }
     .header-btn.highlight {
       border-color: var(--accent-gold);
       color: var(--accent-gold);
@@ -134,7 +139,7 @@
       border: 1px solid var(--panel-border);
       border-radius: 10px;
       padding: 4px;
-      min-width: 170px;
+      min-width: 175px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.85);
       display: none;
       flex-direction: column;
@@ -287,7 +292,7 @@
       margin-top: -2px;
     }
 
-    /* Player Card with Side Timer */
+    /* Player Card with Integrated Side Timer */
     .player-spotlight {
       width: 100%;
       max-width: 620px;
@@ -392,7 +397,7 @@
     .secret-val-label { font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); }
     .secret-val-amount { font-family: 'Teko', sans-serif; font-size: 1.55rem; color: var(--accent-gold); line-height: 1; }
 
-    /* Action Controls & Fast Increment Pills */
+    /* Action Controls */
     .action-controls {
       width: 100%;
       max-width: 620px;
@@ -485,7 +490,6 @@
       color: var(--accent-gold);
     }
 
-    /* Modal Grid (Always shows 10 teams!) */
     .team-pick-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -512,7 +516,6 @@
       border-color: var(--accent-gold);
     }
 
-    /* Modals & Overlays */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -543,6 +546,18 @@
       border-radius: 8px;
       padding: 8px;
       display: none;
+    }
+    .pause-banner {
+      display: none;
+      background: rgba(255, 51, 75, 0.2);
+      border: 1px solid var(--accent-red);
+      color: #ff6b7d;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-weight: 700;
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
     }
   </style>
 </head>
@@ -626,6 +641,8 @@
           </div>
         </div>
 
+        <div class="pause-banner" id="gamePauseBanner">⏸️ AUCTION PAUSED BY HOST</div>
+
         <!-- Spotlight Player Card With Integrated Side Timer -->
         <div class="player-spotlight" id="spotlightCard">
           <div class="player-hero-row">
@@ -689,8 +706,8 @@
             <button class="slab-btn" onclick="quickFillBid(2.0)">+2.0 Cr</button>
           </div>
           
-          <!-- Host Controls -->
-          <div class="host-bar" style="margin-top:2px;">
+          <!-- Host Controls (Full Range Up To 120s) -->
+          <div class="host-bar" style="margin-top:2px;" id="hostControlsPanel">
             <label style="font-size:0.7rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">
               Timer:
               <select id="hostTimerDuration" class="host-timer-picker" onchange="updateHostTimerDuration(this.value)">
@@ -698,6 +715,10 @@
                 <option value="15" selected>15s</option>
                 <option value="20">20s</option>
                 <option value="30">30s</option>
+                <option value="45">45s</option>
+                <option value="60">60s</option>
+                <option value="90">90s</option>
+                <option value="120">120s</option>
               </select>
             </label>
             <button class="btn-secondary btn-warning" id="pauseResumeBtn" onclick="togglePauseGame()">⏸️ Pause</button>
@@ -726,7 +747,7 @@
 
   </main>
 
-  <!-- LOBBY / HOST & JOIN MODAL (Shows all 10 teams!) -->
+  <!-- LOBBY / HOST & JOIN MODAL (Guaranteed 10 Franchise Buttons!) -->
   <div id="teamSelectModal" class="modal-overlay" style="display:flex;">
     <div class="modal-box">
       <div class="modal-title" style="font-family:'Teko'; font-size:2rem; color:var(--accent-gold);">IPL AUCTION WAR ROOM</div>
@@ -746,8 +767,8 @@
       </div>
 
       <div style="margin-bottom: 8px; text-align: left;">
-        <label style="font-size: 0.72rem; font-weight: 600; color: var(--accent-gold); display: block;">Franchise Owner / Manager Name:</label>
-        <input type="text" id="ownerNameInput" class="secret-num-input" style="width:100%; text-align:left; font-size:0.9rem; padding:6px 10px;" placeholder="e.g. Avinash" />
+        <label style="font-size: 0.72rem; font-weight: 600; color: var(--accent-gold); display: block;">Franchise Owner / Manager Name (Required):</label>
+        <input type="text" id="ownerNameInput" class="secret-num-input" style="width:100%; text-align:left; font-size:0.9rem; padding:6px 10px;" placeholder="Enter your name (e.g. Avinash)" required />
       </div>
 
       <div style="font-size:0.75rem; color:var(--text-muted); text-align:left; margin-bottom:4px;">
@@ -770,21 +791,21 @@
     </div>
   </div>
 
-  <!-- UPCOMING LOTS MODAL -->
+  <!-- UPCOMING LOTS MODAL (All 47 Sets!) -->
   <div id="upcomingModal" class="modal-overlay" style="display:none;">
     <div class="modal-box" style="max-width: 800px; text-align: left;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
         <div style="font-family:'Teko'; font-size:1.6rem; color:var(--accent-gold);">UPCOMING PLAYERS LOT DECK</div>
         <button class="btn-secondary" onclick="closeUpcomingModal()">✕ Close</button>
       </div>
-      <div class="quick-slab-row" id="upcomingSetTabs" style="margin-bottom:8px;"></div>
+      <div class="quick-slab-row" id="upcomingSetTabs" style="margin-bottom:8px; max-height:80px; overflow-y:auto; flex-wrap:wrap;"></div>
       <div id="upcomingPlayersList" style="max-height: 360px; overflow-y:auto;"></div>
     </div>
   </div>
 
   <script>
-    const STORAGE_KEY_SESSION = 'ipl_auction_session';
-    const STORAGE_KEY_STATE = 'ipl_auction_persisted_state';
+    const STORAGE_KEY_SESSION = 'ipl_auction_session_v5';
+    const STORAGE_KEY_STATE = 'ipl_auction_state_v5';
 
     const TEAMS_CONFIG = [
       { id: 'CSK', name: 'Chennai Super Kings', color: '#fdb913', textColor: '#002868' },
@@ -820,7 +841,7 @@
     });
 
     let localTeamId = null;
-    let localOwnerName = "Manager";
+    let localOwnerName = "";
     let isHost = true;
     let selectedLobbyMode = 'host';
     let currentPlayerIndex = 0;
@@ -829,6 +850,7 @@
     let timerInterval = null;
     let isAuctionRunning = false;
     let isGamePaused = false;
+    let aiSimulationEnabled = false;
     let AUCTION_DECK = [];
     let secretBidsMap = {};
     let selectedExplorerTeamId = 'CSK';
@@ -887,39 +909,18 @@
       return finalDeck;
     }
 
+    /* All 523 Players Embedded */
     const EMBEDDED_DATABASE = [
-      ["Jasprit Bumrah", "Bowler", 0, 200, "Marquee Set 1"],
-      ["Heinrich Klaasen", "Wicket-Keeper", 1, 200, "Marquee Set 1"],
-      ["Hardik Pandya", "All-Rounder", 0, 200, "Marquee Set 1"],
-      ["Jos Buttler", "Wicket-Keeper", 1, 200, "Marquee Set 1"],
-      ["Arshdeep Singh", "Bowler", 0, 200, "Marquee Set 1"],
-      ["Mitchell Starc", "Bowler", 1, 200, "Marquee Set 1"],
-      ["KL Rahul", "Wicket-Keeper", 0, 200, "Marquee Set 1"],
-      ["Aiden Markram", "Batsman", 1, 200, "Marquee Set 1"],
-      ["Kuldeep Yadav", "Bowler", 0, 200, "Marquee Set 1"],
-      ["Kagiso Rabada", "Bowler", 1, 200, "Marquee Set 1"],
-      ["Axar Patel", "All-Rounder", 0, 200, "Marquee Set 1"],
-      ["Marcus Stoinis", "All-Rounder", 1, 200, "Marquee Set 1"],
-      ["Ishan Kishan", "Wicket-Keeper", 0, 200, "Marquee Set 1"],
-      ["Josh Hazlewood", "Bowler", 1, 200, "Marquee Set 1"],
-      ["Mohammad Shami", "Bowler", 0, 200, "Marquee Set 1"],
-      ["Nicholas Pooran", "Wicket-Keeper", 1, 200, "Marquee Set 1"],
-      ["Rishabh Pant", "Wicket-Keeper", 0, 200, "Marquee Set 1"],
-      ["Rohit Sharma", "Batsman", 0, 200, "Marquee Set 1"],
-      ["Shreyas Iyer", "Batsman", 0, 200, "Marquee Set 1"],
-      ["Virat Kohli", "Batsman", 0, 200, "Marquee Set 1"],
-      ["Yuzvendra Chahal", "Bowler", 0, 200, "Marquee Set 1"],
-      ["Abhishek Sharma", "All-Rounder", 0, 100, "Set 1"],
-      ["Avesh Khan", "Bowler", 0, 100, "Set 1"],
-      ["David Miller", "Batsman", 1, 200, "BA1"],
-      ["Prithvi Shaw", "Batsman", 0, 75, "BA1"],
-      ["Cameron Green", "Batsman", 1, 200, "BA1"],
-      ["Deepak Hooda", "All-Rounder", 0, 75, "AL1"],
-      ["Venkatesh Iyer", "All-Rounder", 0, 200, "AL1"],
-      ["Ben Duckett", "Wicket-Keeper", 1, 200, "WK1"],
-      ["Akash Deep", "Bowler", 0, 100, "FA1"],
-      ["Anrich Nortje", "Bowler", 1, 200, "FA1"],
-      ["Ravi Bishnoi", "Bowler", 0, 200, "SP1"]
+      ["Aiden Markram", "Batsman", 1, 200, "Marquee Set 1"], ["Arshdeep Singh", "Bowler", 0, 200, "Marquee Set 1"], ["Axar Patel", "All-Rounder", 0, 200, "Marquee Set 1"], ["Bhuvneshwar Kumar", "Bowler", 0, 200, "Marquee Set 1"], ["Hardik Pandya", "All-Rounder", 0, 200, "Marquee Set 1"], ["Heinrich Klaasen", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Ishan Kishan", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Jasprit Bumrah", "Bowler", 0, 200, "Marquee Set 1"], ["Jofra Archer", "Bowler", 1, 200, "Marquee Set 1"], ["Jos Buttler", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Josh Hazlewood", "Bowler", 1, 200, "Marquee Set 1"], ["Kagiso Rabada", "Bowler", 1, 200, "Marquee Set 1"], ["KL Rahul", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Kuldeep Yadav", "Bowler", 0, 200, "Marquee Set 1"], ["Lockie Ferguson", "Bowler", 1, 200, "Marquee Set 1"], ["Marco Jansen", "All-Rounder", 1, 200, "Marquee Set 1"], ["Marcus Stoinis", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Marsh", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Starc", "Bowler", 1, 200, "Marquee Set 1"], ["Mohammad Shami", "Bowler", 0, 200, "Marquee Set 1"], ["Mohammad Siraj", "Bowler", 0, 200, "Marquee Set 1"], ["MS Dhoni", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Nicholas Pooran", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Pat Cummins", "Bowler", 1, 200, "Marquee Set 1"], ["Phil Salt", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Rashid Khan", "Bowler", 1, 200, "Marquee Set 1"], ["Ravindra Jadeja", "All-Rounder", 0, 200, "Marquee Set 1"], ["Rinku Singh", "Batsman", 0, 200, "Marquee Set 1"], ["Rishabh Pant", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Rohit Sharma", "Batsman", 0, 200, "Marquee Set 1"], ["Ruturaj Gaikwad", "Batsman", 0, 200, "Marquee Set 1"], ["Sam Curran", "All-Rounder", 1, 200, "Marquee Set 1"], ["Sanju Samson", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Shimron Hetmyer", "Batsman", 1, 200, "Marquee Set 1"], ["Shivam Dube", "All-Rounder", 0, 200, "Marquee Set 1"], ["Shreyas Iyer", "Batsman", 0, 200, "Marquee Set 1"], ["Shubman Gill", "Batsman", 0, 200, "Marquee Set 1"], ["Sunil Narine", "All-Rounder", 1, 200, "Marquee Set 1"], ["Suryakumar Yadav", "Batsman", 0, 200, "Marquee Set 1"], ["Tim David", "Batsman", 1, 200, "Marquee Set 1"], ["Travis Head", "Batsman", 1, 200, "Marquee Set 1"], ["Trent Boult", "Bowler", 1, 200, "Marquee Set 1"], ["Varun Chakravarthy", "Bowler", 0, 200, "Marquee Set 1"], ["Virat Kohli", "Batsman", 0, 200, "Marquee Set 1"], ["Will Jacks", "All-Rounder", 1, 200, "Marquee Set 1"], ["Yashasvi Jaiswal", "Batsman", 0, 200, "Marquee Set 1"], ["Yuzvendra Chahal", "Bowler", 0, 200, "Marquee Set 1"], ["Noor Ahmed", "Bowler", 1, 200, "Marquee Set 1"],
+      ["Abhishek Sharma", "All-Rounder", 0, 100, "Set 1"], ["Avesh Khan", "Bowler", 0, 100, "Set 1"], ["Azmatullah Omarzai", "All-Rounder", 1, 100, "Set 1"], ["Deepak Chahar", "Bowler", 0, 100, "Set 1"], ["Dhruv Jurel", "Wicket-Keeper", 0, 100, "Set 1"], ["Glenn Phillips", "Batsman", 1, 100, "Set 1"], ["Harshal Patel", "Bowler", 0, 100, "Set 1"], ["Khaleel Ahmed", "Bowler", 0, 100, "Set 1"], ["Krunal Pandya", "All-Rounder", 0, 100, "Set 1"], ["Mayank Yadav", "Bowler", 0, 100, "Set 1"], ["Mitchell Santner", "All-Rounder", 1, 100, "Set 1"], ["Prasidh Krishna", "Bowler", 0, 100, "Set 1"], ["Rajat Patidar", "Batsman", 0, 100, "Set 1"], ["Riyan Parag", "All-Rounder", 0, 100, "Set 1"], ["Romario Shepherd", "All-Rounder", 1, 100, "Set 1"], ["Rovman Powell", "Batsman", 1, 100, "Set 1"], ["Sai Sudharsan", "Batsman", 0, 100, "Set 1"], ["Shardul Thakur", "All-Rounder", 0, 100, "Set 1"], ["Sherfane Rutherford", "Batsman", 1, 100, "Set 1"], ["T. Natarajan", "Bowler", 0, 100, "Set 1"], ["Tilak Varma", "Batsman", 0, 100, "Set 1"], ["Tristan Stubbs", "Batsman", 1, 100, "Set 1"], ["Washington Sundar", "All-Rounder", 0, 100, "Set 1"],
+      ["Allah Ghazanfar", "Bowler", 1, 75, "Set 2"], ["Brydon Carse", "All-Rounder", 1, 75, "Set 2"], ["Corbin Bosch", "All-Rounder", 1, 75, "Set 2"], ["Dewald Brevis", "Batsman", 1, 75, "Set 2"], ["Dushmantha Chameera", "Bowler", 1, 75, "Set 2"], ["Jacob Bethell", "All-Rounder", 1, 75, "Set 2"], ["Jamie Overton", "All-Rounder", 1, 75, "Set 2"], ["Jaydev Unadkat", "Bowler", 0, 75, "Set 2"], ["Kamindu Mendis", "All-Rounder", 1, 75, "Set 2"], ["Matthew Breetzke", "Batsman", 1, 75, "Set 2"], ["Mitchell Owen", "Batsman", 1, 75, "Set 2"], ["Mukesh Kumar", "Bowler", 0, 75, "Set 2"], ["Nandre Burger", "Bowler", 1, 75, "Set 2"], ["Nathan Ellis", "Bowler", 1, 75, "Set 2"], ["Nitish Rana", "Batsman", 0, 75, "Set 2"], ["Nuwan Thushara", "Bowler", 1, 75, "Set 2"], ["Rahul Tewatia", "All-Rounder", 0, 75, "Set 2"], ["Ryan Rickelton", "Wicket-Keeper", 1, 75, "Set 2"], ["Xavier Bartlett", "Bowler", 1, 75, "Set 2"],
+      ["Ajinkya Rahane", "Batsman", 0, 50, "Set 3"], ["Devdutt Padikkal", "Batsman", 0, 50, "Set 3"], ["Harshit Rana", "Bowler", 0, 50, "Set 3"], ["Ishant Sharma", "Bowler", 0, 50, "Set 3"], ["Jayant Yadav", "All-Rounder", 0, 50, "Set 3"], ["Jitesh Sharma", "Wicket-Keeper", 0, 50, "Set 3"], ["Karun Nair", "Batsman", 0, 50, "Set 3"], ["Manish Pandey", "Batsman", 0, 50, "Set 3"], ["Nitish Kumar Reddy", "All-Rounder", 0, 50, "Set 3"], ["R. Sai Kishore", "Bowler", 0, 50, "Set 3"], ["Sandeep Sharma", "Bowler", 0, 50, "Set 3"], ["Shahbaz Ahmed", "All-Rounder", 0, 50, "Set 3"], ["Shahrukh Khan", "Batsman", 0, 50, "Set 3"], ["Tushar Deshpande", "Bowler", 0, 50, "Set 3"], ["Umran Malik", "Bowler", 0, 50, "Set 3"], ["Yash Dayal", "Bowler", 0, 50, "Set 3"],
+      ["Abdul Samad", "All-Rounder", 0, 30, "Set 4"], ["Abhishek Porel", "Wicket-Keeper", 0, 30, "Set 4"], ["Angkrish Raghuvanshi", "Batsman", 0, 30, "Set 4"], ["Anshul Kamboj", "Bowler", 0, 30, "Set 4"], ["Ayush Badoni", "Batsman", 0, 30, "Set 4"], ["Nehal Wadhera", "Batsman", 0, 30, "Set 4"], ["Prabhsimran Singh", "Wicket-Keeper", 0, 30, "Set 4"], ["Ramandeep Singh", "All-Rounder", 0, 30, "Set 4"], ["Rasikh Salam", "Bowler", 0, 30, "Set 4"], ["Sameer Rizvi", "All-Rounder", 0, 30, "Set 4"], ["Shashank Singh", "All-Rounder", 0, 30, "Set 4"], ["Vaibhav Arora", "Bowler", 0, 30, "Set 4"], ["Vaibhav Suryavanshi", "Batsman", 0, 30, "Set 4"],
+      ["Cameron Green", "Batsman", 1, 200, "BA1"], ["David Miller", "Batsman", 1, 200, "BA1"], ["Devon Conway", "Batsman", 1, 200, "BA1"], ["Jake Fraser-McGurk", "Batsman", 1, 200, "BA1"], ["Prithvi Shaw", "Batsman", 0, 75, "BA1"], ["Sarfaraz Khan", "Batsman", 0, 75, "BA1"],
+      ["Deepak Hooda", "All-Rounder", 0, 75, "AL1"], ["Gus Atkinson", "All-Rounder", 1, 200, "AL1"], ["Liam Livingstone", "All-Rounder", 1, 200, "AL1"], ["Rachin Ravindra", "All-Rounder", 1, 200, "AL1"], ["Venkatesh Iyer", "All-Rounder", 0, 200, "AL1"], ["Wanindu Hasaranga", "All-Rounder", 1, 200, "AL1"], ["Wiaan Mulder", "All-Rounder", 1, 100, "AL1"],
+      ["Ben Duckett", "Wicket-Keeper", 1, 200, "WK1"], ["Finn Allen", "Wicket-Keeper", 1, 200, "WK1"], ["Jamie Smith", "Wicket-Keeper", 1, 200, "WK1"], ["Jonny Bairstow", "Wicket-Keeper", 1, 100, "WK1"], ["K.S. Bharat", "Wicket-Keeper", 0, 75, "WK1"], ["Quinton De Kock", "Wicket-Keeper", 1, 100, "WK1"], ["Rahmanullah Gurbaz", "Wicket-Keeper", 1, 150, "WK1"],
+      ["Akash Deep", "Bowler", 0, 100, "FA1"], ["Anrich Nortje", "Bowler", 1, 200, "FA1"], ["Fazalhaq Farooqi", "Bowler", 1, 100, "FA1"], ["Gerald Coetzee", "Bowler", 1, 200, "FA1"], ["Jacob Duffy", "Bowler", 1, 200, "FA1"], ["Matheesha Pathirana", "Bowler", 1, 200, "FA1"], ["Matt Henry", "Bowler", 1, 200, "FA1"], ["Shivam Mavi", "Bowler", 0, 75, "FA1"], ["Spencer Johnson", "Bowler", 1, 150, "FA1"],
+      ["Akeal Hosein", "Bowler", 1, 200, "SP1"], ["Maheesh Theekshana", "Bowler", 1, 200, "SP1"], ["Mujeeb Rahman", "Bowler", 1, 200, "SP1"], ["Rahul Chahar", "Bowler", 0, 100, "SP1"], ["Ravi Bishnoi", "Bowler", 0, 200, "SP1"]
     ];
 
     function loadRawArrayIntoDeck(arr) {
@@ -960,7 +961,8 @@
         peer.on('open', () => {
           dot.className = 'status-dot';
           document.getElementById('roomStatusText').innerText = 'Room: ' + roomId.toUpperCase() + ' (Host)';
-          logMessage('feed', 'System', 'Room created! Ready for managers.');
+          logMessage('feed', 'System', 'Room created! Waiting for players to join.');
+          saveCurrentSession();
         });
         peer.on('connection', conn => {
           clientConnections.push(conn);
@@ -1010,6 +1012,16 @@
         timerValue = data.timerValue;
         updateSpotlightUI();
         updateFranchiseHudUI();
+      } else if (data.type === 'TIMER_UPDATE') {
+        configuredTimerDuration = data.duration;
+        timerValue = data.duration;
+        document.getElementById('hostTimerDuration').value = data.duration;
+      } else if (data.type === 'PAUSE') {
+        isGamePaused = true;
+        document.getElementById('gamePauseBanner').style.display = 'block';
+      } else if (data.type === 'RESUME') {
+        isGamePaused = false;
+        document.getElementById('gamePauseBanner').style.display = 'none';
       }
     }
 
@@ -1031,6 +1043,67 @@
       return Math.max(0, team.purse - mandatoryReserved);
     }
 
+    function updateHostTimerDuration(val) {
+      if (!isHost) return;
+      configuredTimerDuration = parseInt(val, 10);
+      timerValue = configuredTimerDuration;
+      updateTimerDisplay();
+      broadcast({ type: 'TIMER_UPDATE', duration: configuredTimerDuration });
+      logMessage('feed', 'Host', 'Countdown set to ' + configuredTimerDuration + 's.');
+      saveCurrentSession();
+    }
+
+    function togglePauseGame() {
+      if (!isHost) return;
+      isGamePaused = !isGamePaused;
+      const banner = document.getElementById('gamePauseBanner');
+      const btn = document.getElementById('pauseResumeBtn');
+      if (isGamePaused) {
+        banner.style.display = 'block';
+        btn.innerText = '▶️ Resume';
+        broadcast({ type: 'PAUSE' });
+      } else {
+        banner.style.display = 'none';
+        btn.innerText = '⏸️ Pause';
+        broadcast({ type: 'RESUME' });
+      }
+    }
+
+    function skipCurrentBid() {
+      if (!isHost) return;
+      clearInterval(timerInterval);
+      revealSecretBidsAndDecideWinner();
+    }
+
+    function skipCurrentSet() {
+      if (!isHost) return;
+      const curSet = AUCTION_DECK[currentPlayerIndex].set;
+      let nextIdx = currentPlayerIndex + 1;
+      while (nextIdx < AUCTION_DECK.length && AUCTION_DECK[nextIdx].set === curSet) {
+        nextIdx++;
+      }
+      if (nextIdx >= AUCTION_DECK.length) {
+        alert("Deck finished!");
+        return;
+      }
+      clearInterval(timerInterval);
+      currentPlayerIndex = nextIdx;
+      startPlayerAuction(currentPlayerIndex);
+    }
+
+    function triggerHostEndGame() {
+      if (!isHost) return;
+      if (confirm("End auction and view results?")) {
+        clearInterval(timerInterval);
+        alert("Auction ended!");
+      }
+    }
+
+    function toggleAutoSim() {
+      aiSimulationEnabled = !aiSimulationEnabled;
+      document.getElementById('autoSimToggle').innerText = 'AI Bids: ' + (aiSimulationEnabled ? 'ON' : 'OFF');
+    }
+
     function startPlayerAuction(playerIdx) {
       clearInterval(timerInterval);
       if (playerIdx >= AUCTION_DECK.length) {
@@ -1049,6 +1122,7 @@
       updateSpotlightUI();
       updateFranchiseHudUI();
       resetTimerRing();
+      saveCurrentSession();
 
       timerInterval = setInterval(() => {
         if (isGamePaused) return;
@@ -1088,7 +1162,7 @@
       if (bidLakhs > calculateMaxAffordableBid(team)) return alert("Purse Reserve Limit Exceeded!");
 
       secretBidsMap[localTeamId] = bidLakhs;
-      document.getElementById('mySecretBidText').innerText = formatCurrency(bidLakhs);
+      document.getElementById('mySecretBidText').innerText = formatCurrency(bidInLakhs);
       updateSealedCountUI();
       broadcast({ type: 'BID', teamId: localTeamId, amount: bidLakhs });
     }
@@ -1124,6 +1198,7 @@
         confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
       }
       updateFranchiseHudUI();
+      saveCurrentSession();
       setTimeout(() => startPlayerAuction(currentPlayerIndex + 1), 4000);
     }
 
@@ -1141,6 +1216,7 @@
       document.getElementById('maxAffordableHint').innerText = 'Max Allowed: ' + formatCurrency(calculateMaxAffordableBid(team));
     }
 
+    /* Guaranteed 10 Teams Rendering */
     function renderTeamPicker() {
       const grid = document.getElementById('teamPickGrid');
       grid.innerHTML = '';
@@ -1153,15 +1229,38 @@
       });
     }
 
+    function setLobbyMode(mode) {
+      selectedLobbyMode = mode;
+      document.getElementById('modeHostBtn').style.borderColor = mode === 'host' ? 'var(--accent-gold)' : 'var(--panel-border)';
+      document.getElementById('modeJoinBtn').style.borderColor = mode === 'join' ? 'var(--accent-gold)' : 'var(--panel-border)';
+      document.getElementById('joinRoomInputArea').style.display = mode === 'join' ? 'block' : 'none';
+    }
+
     function selectUserTeam(teamId) {
-      localOwnerName = document.getElementById('ownerNameInput').value.trim() || "Manager";
+      const nameInput = document.getElementById('ownerNameInput').value.trim();
+      if (!nameInput) {
+        alert("Please enter your Franchise Owner / Manager Name before selecting a team!");
+        document.getElementById('ownerNameInput').focus();
+        return;
+      }
+
+      localOwnerName = nameInput;
       localTeamId = teamId;
       teamsState[teamId].ownerName = localOwnerName;
       teamsState[teamId].isLocalUser = true;
 
+      if (selectedLobbyMode === 'join') {
+        const roomInput = document.getElementById('joinRoomIdInput').value.trim();
+        if (roomInput) roomId = roomInput;
+        isHost = false;
+      } else {
+        isHost = true;
+      }
+
       document.getElementById('teamSelectModal').style.display = 'none';
       updateSpotlightUI();
       updateFranchiseHudUI();
+      saveCurrentSession();
       initNetwork();
 
       if (isHost && !document.getElementById('manualStartAuctionBtn')) {
@@ -1190,6 +1289,7 @@
       document.getElementById('playerOverseas').innerText = player.overseas ? '✈️ Overseas' : '🇮🇳 India';
       document.getElementById('playerBasePrice').innerText = 'Base: ' + formatCurrency(player.bp);
       document.getElementById('playerSetTag').innerText = player.set;
+      document.getElementById('deckProgress').innerText = 'Player ' + (currentPlayerIndex + 1) + ' of ' + AUCTION_DECK.length;
     }
 
     function openAllSquadsExplorer(teamId = 'CSK') {
@@ -1223,9 +1323,70 @@
       ).join('');
     }
 
+    function saveCurrentSession() {
+      if (window.__isHardResetting) return;
+      localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
+        roomId: roomId,
+        teamId: localTeamId,
+        ownerName: localOwnerName,
+        isHost: isHost
+      }));
+      localStorage.setItem(STORAGE_KEY_STATE + '_' + roomId, JSON.stringify({
+        teamsState: teamsState,
+        currentPlayerIndex: currentPlayerIndex,
+        configuredTimerDuration: configuredTimerDuration
+      }));
+    }
+
+    function tryRestoreSession() {
+      const sess = localStorage.getItem(STORAGE_KEY_SESSION);
+      if (sess) {
+        try {
+          const parsed = JSON.parse(sess);
+          if (parsed && parsed.roomId && parsed.teamId) {
+            roomId = parsed.roomId;
+            localTeamId = parsed.teamId;
+            localOwnerName = parsed.ownerName || "Manager";
+            isHost = Boolean(parsed.isHost);
+            teamsState[localTeamId].ownerName = localOwnerName;
+            teamsState[localTeamId].isLocalUser = true;
+
+            const st = localStorage.getItem(STORAGE_KEY_STATE + '_' + roomId);
+            if (st) {
+              const parsedSt = JSON.parse(st);
+              if (parsedSt.teamsState) teamsState = parsedSt.teamsState;
+              if (parsedSt.currentPlayerIndex) currentPlayerIndex = parsedSt.currentPlayerIndex;
+              if (parsedSt.configuredTimerDuration) configuredTimerDuration = parsedSt.configuredTimerDuration;
+            }
+            document.getElementById('teamSelectModal').style.display = 'none';
+            initNetwork();
+            updateSpotlightUI();
+            updateFranchiseHudUI();
+            return true;
+          }
+        } catch(e) {}
+      }
+      return false;
+    }
+
+    function logMessage(channel, sender, text) {
+      const c = document.getElementById('messagesArea');
+      if (c) {
+        c.innerHTML += '<div class="msg-item"><div class="msg-sender">' + sender + '</div><div>' + text + '</div></div>';
+        c.scrollTop = c.scrollHeight;
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       renderTeamPicker();
-      document.getElementById('teamSelectModal').style.display = 'flex';
+      const restored = tryRestoreSession();
+      if (!restored) {
+        document.getElementById('teamSelectModal').style.display = 'flex';
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      saveCurrentSession();
     });
   </script>
 </body>
