@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title> IPL Mega Auction </title>
+  
+  <!-- Fonts & External Libraries -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Work+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #070b14;
+      --card-bg: #111726;
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --accent-gold: #ffbe1a;
+      --accent-cyan: #00f0ff;
+      --accent-red: #ff334b;
+      --accent-green: #00e676;
+      --text-main: #f0f4fc;
+      --text-muted: #8c9bb5;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 50% 10%, #172442 0%, #070b14 75%);
+      color: var(--text-main);
+      font-family: 'Work Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: rgba(10, 16, 29, 0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-title {
+      font-family: 'Teko', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 1.5px;
+      background: linear-gradient(90deg, #fff, var(--accent-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .room-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      font-size: 0.85rem;
+      border: 1px solid var(--panel-border);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .room-badge:hover { background: rgba(255, 255, 255, 0.12); }
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      transition: all 0.3s;
+    }
+    .status-dot.reconnecting {
+      background: var(--accent-gold);
+      box-shadow: 0 0 8px var(--accent-gold);
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; }
+    }
+
+    .app-container {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      gap: 16px;
+      height: calc(100vh - 66px);
+    }
+    @media (max-width: 1200px) {
+      .app-container { grid-template-columns: 290px 1fr; height: auto; }
+      .chat-panel { grid-column: span 2; height: 420px; }
+    }
+    @media (max-width: 860px) {
+      .app-container { grid-template-columns: 1fr; height: auto; }
+      .chat-panel { grid-column: span 1; }
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    .panel-header {
+      padding: 12px 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.82rem;
+      letter-spacing: 1px;
+      color: var(--accent-gold);
+    }
+
+    /* Left Panel: Teams */
+    .team-list {
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .team-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .team-card:hover {
+      border-color: rgba(255, 190, 26, 0.4);
+      transform: translateY(-2px);
+    }
+    .team-card.active-user-team {
+      border: 1.5px solid var(--accent-gold);
+      background: rgba(255, 190, 26, 0.08);
+    }
+    .team-card-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .team-logo-badge {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Teko', sans-serif;
+      font-size: 1.35rem;
+      font-weight: bold;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    .team-meta { flex: 1; min-width: 0; }
+    .team-name {
+      font-weight: 700;
+      font-size: 0.92rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .team-owner { font-size: 0.72rem; color: var(--text-muted); }
+    .team-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
+      font-size: 0.78rem;
+    }
+    .stat-pill {
+      background: rgba(255,255,255,0.05);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .secret-lock-pill {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+      background: rgba(255, 190, 26, 0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    /* Center Stage */
+    .auction-stage {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .stage-body {
+      padding: 16px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      overflow-y: auto;
+    }
+
+    .timer-wrap {
+      position: relative;
+      width: 105px;
+      height: 105px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+    .timer-svg {
+      transform: rotate(-90deg);
+      width: 100%;
+      height: 100%;
+    }
+    .timer-circle-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.1);
+      stroke-width: 8;
+    }
+    .timer-circle {
+      fill: none;
+      stroke: var(--accent-cyan);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 283;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 0.1s linear, stroke 0.3s;
+    }
+    .timer-num {
+      position: absolute;
+      font-family: 'Teko', sans-serif;
+      font-size: 3.2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .player-spotlight {
+      width: 100%;
+      max-width: 580px;
+      background: linear-gradient(145deg, #162035, #0d1322);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+    }
+    .player-tag {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      background: rgba(255, 190, 26, 0.15);
+      color: var(--accent-gold);
+      border: 1px solid var(--accent-gold);
+    }
+    .player-name {
+      font-family: 'Teko', sans-serif;
+      font-size: 2.7rem;
+      line-height: 1.05;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #fff;
+    }
+    .player-details {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 4px;
+      font-size: 0.92rem;
+      color: var(--text-muted);
+    }
+
+    .secret-status-box {
+      margin-top: 14px;
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .secret-val-label { font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); }
+    .secret-val-amount { font-family: 'Teko', sans-serif; font-size: 2.1rem; color: var(--accent-gold); line-height: 1; }
+
+    /* Post-Timer Reveal Panel */
+    .bids-reveal-panel {
+      width: 100%;
+      max-width: 580px;
+      margin-top: 10px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--accent-gold);
+      border-radius: 14px;
+      padding: 14px;
+      display: none;
+      animation: popIn 0.3s ease;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.95); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .reveal-title {
+      font-family: 'Teko', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 1px;
+      color: var(--accent-gold);
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .reveal-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      font-size: 0.86rem;
+      background: rgba(255,255,255,0.03);
+    }
+    .reveal-item.rank-1 {
+      background: rgba(0, 230, 118, 0.15);
+      border: 1px solid var(--accent-green);
+      font-weight: 700;
+    }
+    .reveal-item.rank-2 {
+      background: rgba(255, 190, 26, 0.1);
+      border: 1px solid rgba(255, 190, 26, 0.4);
+    }
+    .reveal-item.rank-3 {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .secret-input-bar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .secret-num-input {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 700;
+      outline: none;
+      text-align: center;
+    }
+    .secret-num-input:focus { border-color: var(--accent-cyan); }
+    .quick-slab-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      justify-content: center;
+    }
+    .slab-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .slab-btn:hover { background: rgba(255,255,255,0.15); }
+
+    .action-controls {
+      width: 100%;
+      max-width: 580px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .bid-action-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #00c853, #009624);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Teko', sans-serif;
+      font-size: 1.8rem;
+      letter-spacing: 1.2px;
+      cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 8px 25px rgba(0, 200, 83, 0.35);
+    }
+    .bid-action-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 200, 83, 0.5);
+    }
+    .bid-action-btn:disabled {
+      background: #232c3d;
+      color: #55657e;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .host-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      width: 100%;
+      align-items: center;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+    .btn-danger {
+      background: rgba(255, 51, 75, 0.2);
+      border: 1px solid var(--accent-red);
+      color: #ff6b7d;
+    }
+    .btn-danger:hover {
+      background: var(--accent-red);
+      color: #fff;
+    }
+    .host-timer-picker {
+      background: #111726;
+      border: 1px solid var(--panel-border);
+      color: var(--accent-gold);
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Right Panel */
+    .chat-panel { display: flex; flex-direction: column; }
+    .chat-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .chat-tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-transform: uppercase;
+      border-bottom: 2px solid transparent;
+    }
+    .chat-tab.active {
+      color: var(--accent-gold);
+      border-bottom-color: var(--accent-gold);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .msg-item {
+      font-size: 0.84rem;
+      line-height: 1.35;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .msg-item.event-bid {
+      border-left: 3px solid var(--accent-cyan);
+      background: rgba(0, 240, 255, 0.05);
+    }
+    .msg-item.event-sold {
+      border-left: 3px solid var(--accent-gold);
+      background: rgba(255, 190, 26, 0.08);
+      font-weight: 600;
+    }
+    .msg-sender {
+      font-weight: 700;
+      font-size: 0.72rem;
+      margin-bottom: 2px;
+      color: var(--accent-cyan);
+    }
+    .chat-input-bar {
+      padding: 10px;
+      display: flex;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border-top: 1px solid var(--panel-border);
+    }
+    .chat-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #fff;
+      font-size: 0.88rem;
+      outline: none;
+    }
+    .chat-input:focus { border-color: var(--accent-cyan); }
+    .chat-send-btn {
+      background: var(--accent-cyan);
+      color: #050a14;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      padding: 0 14px;
+      cursor: pointer;
+    }
+
+    /* Modal dialogs */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-box {
+      background: #131b2e;
+      border: 1px solid var(--panel-border);
+      border-radius: 20px;
+      padding: 24px;
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    }
+    .modal-title {
+      font-family: 'Teko', sans-serif;
+      font-size: 2.2rem;
+      color: var(--accent-gold);
+      margin-bottom: 6px;
+    }
+    .team-pick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      max-height: 330px;
+      overflow-y: auto;
+      margin: 16px 0;
+      padding: 4px;
+    }
+    .team-pick-card {
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--panel-border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .team-pick-card:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-gold);
+    }
+
+    /* Tabs across all 10 franchises in Squad Explorer */
+    .squad-nav-tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--panel-border);
+      margin-bottom: 12px;
+    }
+    .squad-tab-btn {
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-family: 'Teko';
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      border: 1px solid var(--panel-border);
+      background: rgba(255,255,255,0.04);
+      color: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .squad-tab-btn.active {
+      border-color: var(--accent-gold);
+      background: rgba(255, 190, 26, 0.15);
+      color: var(--accent-gold);
+    }
+
+    /* Grand Finale End Page Screen */
+    #endGameScreen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #080d1a;
+      z-index: 2000;
+      overflow-y: auto;
+      padding: 24px 20px;
+    }
+    .end-container {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .end-header {
+      text-align: center;
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    .end-header h1 {
+      font-family: 'Teko';
+      font-size: 3.4rem;
+      background: linear-gradient(90deg, #fff, var(--accent-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 2px;
+      line-height: 1;
+    }
+    .end-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .end-metric-card {
+      background: #111726;
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+    .end-metric-title { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); }
+    .end-metric-val { font-family: 'Teko'; font-size: 2.2rem; color: var(--accent-gold); margin-top: 4px; }
+
+    .final-squads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 16px;
+    }
+    .final-team-card {
+      background: #111726;
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .final-team-header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+    }
+    .final-player-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ffbe1a" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+        <path d="M2 12h20"></path>
+      </svg>
+      <div>
+        <div class="brand-title">IPL AUCTION ARENA</div>
+      </div>
+    </div>
+
+    <div style="display:flex; align-items:center; gap: 10px;">
+      <div id="roomBadge" class="room-badge" onclick="copyInviteLink()" title="Click to copy Room Link">
+        <span id="networkStatusDot" class="status-dot"></span>
+        <span id="roomStatusText">Connecting...</span>
+      </div>
+      <button class="btn-secondary" onclick="openAllSquadsExplorer()" style="border-color:var(--accent-gold); color:var(--accent-gold);">
+        👥 All Squads
+      </button>
+      <button class="btn-secondary" onclick="promptSwitchFranchise()" title="Switch or choose another team">Switch Team</button>
+    </div>
+  </header>
+
+  <main class="app-container" id="mainAppInterface">
+    
+    <!-- LEFT: 10 Franchises -->
+    <section class="panel">
+      <div class="panel-header">
+        <span>Franchises (10)</span>
+        <span style="cursor:pointer;" onclick="openAllSquadsExplorer()" title="Click to view all rosters">Click to View 👁️</span>
+      </div>
+      <div class="team-list" id="teamListContainer"></div>
+    </section>
+
+    <!-- CENTER: Active Secret Auction Stage -->
+    <section class="panel auction-stage">
+      <div class="panel-header">
+        <span id="auctionSetHeading">Set Order • Live Hammer</span>
+        <span id="deckProgress">Player 1 of 523</span>
+      </div>
+
+      <div class="stage-body">
+        
+        <!-- Timer -->
+        <div class="timer-wrap">
+          <svg class="timer-svg" viewBox="0 0 100 100">
+            <circle class="timer-circle-bg" cx="50" cy="50" r="45"></circle>
+            <circle id="timerRing" class="timer-circle" cx="50" cy="50" r="45"></circle>
+          </svg>
+          <div id="timerNumber" class="timer-num">15</div>
+        </div>
+
+        <!-- Spotlight Player Card -->
+        <div class="player-spotlight" id="spotlightCard">
+          <div id="playerSetTag" class="player-tag">Marquee Set 1</div>
+          <div id="playerName" class="player-name">Player Name</div>
+          <div class="player-details">
+            <span id="playerRole">Role</span>
+            <span>•</span>
+            <span id="playerOverseas" style="font-weight:600;">India</span>
+            <span>•</span>
+            <span id="playerBasePrice">Base: ₹2.00 Cr</span>
+          </div>
+
+          <!-- Secret Status Box -->
+          <div class="secret-status-box">
+            <div>
+              <div class="secret-val-label">Your Locked Secret Bid</div>
+              <div id="mySecretBidText" class="secret-val-amount">None</div>
+            </div>
+            <div>
+              <div class="secret-val-label">Total Bids Sealed</div>
+              <div id="sealedCountText" style="font-size:1.6rem; font-family:'Teko'; color:var(--accent-cyan);">0 Teams</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Post-Timer Reveal Board -->
+        <div class="bids-reveal-panel" id="bidsRevealPanel">
+          <div class="reveal-title">🔨 BIDS REVEALED (TOP 3)</div>
+          <div id="revealListContent"></div>
+        </div>
+
+        <!-- Bidding Deck -->
+        <div class="action-controls" id="biddingControlsArea">
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted);">
+            <span>Enter Secret Bid (in Crores)</span>
+            <span id="maxAffordableHint">Max Limit: ₹120.00 Cr</span>
+          </div>
+
+          <div class="secret-input-bar">
+            <input type="number" id="secretBidInput" step="0.05" class="secret-num-input" placeholder="Amount in Cr (e.g. 2.5)" />
+            <button id="lockBidBtn" class="bid-action-btn" style="padding:10px 20px; font-size:1.4rem;" onclick="handleLockSecretBid()">
+              LOCK SECRET BID
+            </button>
+          </div>
+
+          <div class="quick-slab-row">
+            <button class="slab-btn" onclick="quickFillBid(0)">Base Price</button>
+            <button class="slab-btn" onclick="quickFillBid(0.2)">+20 L</button>
+            <button class="slab-btn" onclick="quickFillBid(0.5)">+50 L</button>
+            <button class="slab-btn" onclick="quickFillBid(1.0)">+1.0 Cr</button>
+            <button class="slab-btn" onclick="quickFillBid(2.0)">+2.0 Cr</button>
+          </div>
+          
+          <div class="host-bar" style="margin-top:6px;">
+            <label style="font-size:0.78rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+              Timer:
+              <select id="hostTimerDuration" class="host-timer-picker" onchange="updateHostTimerDuration(this.value)">
+                <option value="10">10 Secs</option>
+                <option value="15" selected>15 Secs</option>
+                <option value="20">20 Secs</option>
+                <option value="25">25 Secs</option>
+                <option value="30">30 Secs</option>
+                <option value="45">45 Secs</option>
+              </select>
+            </label>
+
+            <button class="btn-secondary" onclick="passPlayer()">Skip Round</button>
+            <button class="btn-secondary" onclick="toggleAutoSim()" id="autoSimToggle">AI Bids: ON</button>
+            <label class="btn-secondary" style="margin:0; cursor:pointer;">
+              Load Excel
+              <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display:none;" onchange="handleExcelUpload(event)">
+            </label>
+            <button class="btn-secondary btn-danger" id="hostEndAuctionBtn" onclick="triggerHostEndGame()" title="Host only: End auction and show final rosters">
+              End Auction 🏁
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RIGHT: Live Feed & Chat -->
+    <section class="panel chat-panel">
+      <div class="chat-tabs">
+        <div class="chat-tab active" id="tabFeed" onclick="switchTab('feed')">War Room Feed</div>
+        <div class="chat-tab" id="tabChat" onclick="switchTab('chat')">Lobby Chat</div>
+      </div>
+
+      <div class="messages-area" id="messagesArea"></div>
+
+      <div class="chat-input-bar">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Type tactical message..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
+        <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Team Pick Modal (with Owner Name input) -->
+  <div id="teamSelectModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box">
+      <div class="modal-title">IPL SECRET AUCTION</div>
+      <p style="color:var(--text-muted); font-size:0.86rem; line-height: 1.4; margin-bottom: 12px;">
+        Enter your manager name and choose your franchise. Each team is given a <strong>₹120 Cr</strong> purse and must sign <strong>exactly 18 players</strong> (max 6 overseas).
+      </p>
+
+      <!-- Owner Name Input -->
+      <div style="margin-bottom: 14px; text-align: left;">
+        <label style="font-size: 0.8rem; font-weight: 600; color: var(--accent-gold); display: block; margin-bottom: 4px;">Franchise Owner / Manager Name:</label>
+        <input type="text" id="ownerNameInput" class="secret-num-input" style="width:100%; text-align:left; font-size:0.95rem; padding:9px 14px;" placeholder="e.g. Avinash" />
+      </div>
+
+      <div class="team-pick-grid" id="teamPickGrid"></div>
+    </div>
+  </div>
+
+  <!-- Universal Squad Explorer Modal -->
+  <div id="squadExplorerModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width: 780px; text-align: left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <div class="modal-title" style="margin:0; font-size:2rem;">WAR ROOM SQUADS EXPLORER</div>
+          <div style="font-size:0.8rem; color:var(--text-muted);">Inspect every franchise's roster, purse, and overseas quota in real-time.</div>
+        </div>
+        <button class="btn-secondary" onclick="closeSquadExplorerModal()">✕ Close</button>
+      </div>
+
+      <!-- Quick 10 Franchise Nav Tabs -->
+      <div class="squad-nav-tabs" id="squadNavTabs"></div>
+
+      <!-- Selected Team Summary Banner -->
+      <div id="squadExplorerHeaderCard" style="background:rgba(255,255,255,0.03); border:1px solid var(--panel-border); border-radius:10px; padding:10px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;"></div>
+
+      <!-- Detailed Itemized List -->
+      <div id="squadExplorerContent" style="max-height: 380px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- Grand Finale End Page Screen -->
+  <div id="endGameScreen">
+    <div class="end-container">
+      <div class="end-header">
+        <h1>IPL MEGA AUCTION • GRAND FINALE</h1>
+        <p style="color:var(--text-muted); font-size:1.1rem; margin-top:4px;">
+          The gavel has fallen! Official final squads, squad expenditure, and tournament records.
+        </p>
+        <div style="display:flex; justify-content:center; gap:10px; margin-top:16px;">
+          <button class="btn-secondary" onclick="exportFinalSquadsExcel()" style="border-color:var(--accent-green); color:var(--accent-green); font-size:0.95rem;">
+            📥 Export Squads (Excel/CSV)
+          </button>
+          <button class="btn-secondary" onclick="resumeAuctionFromEnd()" id="resumeAuctionBtn" style="display:none;">
+            ↩️ Resume Auction
+          </button>
+        </div>
+      </div>
+
+      <!-- Global Tournament Metrics -->
+      <div class="end-metrics-grid" id="endMetricsGrid"></div>
+
+      <!-- All 10 Teams Final Rosters Breakdown -->
+      <div class="final-squads-grid" id="finalSquadsGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ========================================================
+       1. PERSISTENCE & SESSION RESTORATION LAYER
+       ======================================================== */
+    const STORAGE_KEY_SESSION = 'ipl_auction_session';
+    const STORAGE_KEY_STATE = 'ipl_auction_persisted_state';
+
+    const TEAMS_CONFIG = [
+      { id: 'CSK', name: 'Chennai Super Kings', color: '#fdb913', textColor: '#002868' },
+      { id: 'MI', name: 'Mumbai Indians', color: '#004ba0', textColor: '#ffffff' },
+      { id: 'RCB', name: 'Royal Challengers Bengaluru', color: '#d71920', textColor: '#ffffff' },
+      { id: 'KKR', name: 'Kolkata Knight Riders', color: '#3a225d', textColor: '#ffffff' },
+      { id: 'SRH', name: 'Sunrisers Hyderabad', color: '#f26522', textColor: '#ffffff' },
+      { id: 'DC', name: 'Delhi Capitals', color: '#17479e', textColor: '#ffffff' },
+      { id: 'RR', name: 'Rajasthan Royals', color: '#ea1a85', textColor: '#ffffff' },
+      { id: 'PBKS', name: 'Punjab Kings', color: '#ed1b24', textColor: '#ffffff' },
+      { id: 'GT', name: 'Gujarat Titans', color: '#1c2841', textColor: '#ffffff' },
+      { id: 'LSG', name: 'Lucknow Super Giants', color: '#0057b8', textColor: '#ffffff' }
+    ];
+
+    const EXACT_SQUAD_SIZE = 18;
+    const MAX_OVERSEAS = 6;
+    const INITIAL_PURSE_LAKHS = 12000; // ₹120.00 Cr
+    const MIN_BASE_PRICE_LAKHS = 30;
+
+    let teamsState = {};
+    TEAMS_CONFIG.forEach(t => {
+      teamsState[t.id] = {
+        id: t.id,
+        name: t.name,
+        color: t.color,
+        textColor: t.textColor,
+        purse: INITIAL_PURSE_LAKHS,
+        squad: [],
+        overseasCount: 0,
+        ownerName: "AI Manager",
+        isLocalUser: false
+      };
+    });
+
+    let localTeamId = null;
+    let localOwnerName = "Manager";
+    let isHost = false;
+    let currentPlayerIndex = 0;
+    let timerValue = 15;
+    let configuredTimerDuration = 15;
+    let timerInterval = null;
+    let isAuctionRunning = false;
+    let isAuctionEnded = false;
+    let aiSimulationEnabled = true;
+    let AUCTION_DECK = [];
+    let secretBidsMap = {};
+    let selectedExplorerTeamId = 'CSK';
+
+    // Restore cached session if player refreshes
+    const urlParams = new URLSearchParams(window.location.search);
+    let urlRoom = urlParams.get('room');
+    let cachedSession = null;
+    try {
+      cachedSession = JSON.parse(localStorage.getItem(STORAGE_KEY_SESSION) || 'null');
+    } catch(e){}
+
+    let roomId = urlRoom || (cachedSession && cachedSession.roomId) || ('ipl-' + Math.random().toString(36).substring(2, 7));
+    if (!urlRoom) {
+      window.history.replaceState({}, '', `${window.location.pathname}?room=${roomId}`);
+    }
+
+    /* ========================================================
+       2. EMBEDDED LOT DATABASE
+       ======================================================== */
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function buildAuctionDeck(rawPlayers) {
+      const setsOrder = [];
+      const setMap = {};
+
+      rawPlayers.forEach(p => {
+        const setName = p.set;
+        if (!setMap[setName]) {
+          setsOrder.push(setName);
+          setMap[setName] = [];
+        }
+        setMap[setName].push(p);
+      });
+
+      const finalDeck = [];
+      setsOrder.forEach(setName => {
+        const setPlayers = [...setMap[setName]];
+        shuffleArray(setPlayers);
+        finalDeck.push(...setPlayers);
+      });
+
+      return finalDeck;
+    }
+
+    const EMBEDDED_DATABASE = [
+      ["Aiden Markram", "Batsman", 1, 200, "Marquee Set 1"], ["Arshdeep Singh", "Bowler", 0, 200, "Marquee Set 1"], ["Axar Patel", "All-Rounder", 0, 200, "Marquee Set 1"], ["Bhuvneshwar Kumar", "Bowler", 0, 200, "Marquee Set 1"], ["Hardik Pandya", "All-Rounder", 0, 200, "Marquee Set 1"], ["Heinrich Klaasen", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Ishan Kishan", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Jasprit Bumrah", "Bowler", 0, 200, "Marquee Set 1"], ["Jofra Archer", "Bowler", 1, 200, "Marquee Set 1"], ["Jos Buttler", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Josh Hazlewood", "Bowler", 1, 200, "Marquee Set 1"], ["Kagiso Rabada", "Bowler", 1, 200, "Marquee Set 1"], ["KL Rahul", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Kuldeep Yadav", "Bowler", 0, 200, "Marquee Set 1"], ["Lockie Ferguson", "Bowler", 1, 200, "Marquee Set 1"], ["Marco Jansen", "All-Rounder", 1, 200, "Marquee Set 1"], ["Marcus Stoinis", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Marsh", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Starc", "Bowler", 1, 200, "Marquee Set 1"], ["Mohammad Shami", "Bowler", 0, 200, "Marquee Set 1"], ["Mohammad Siraj", "Bowler", 0, 200, "Marquee Set 1"], ["MS Dhoni", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Nicholas Pooran", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Pat Cummins", "Bowler", 1, 200, "Marquee Set 1"], ["Phil Salt", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Rashid Khan", "Bowler", 1, 200, "Marquee Set 1"], ["Ravindra Jadeja", "All-Rounder", 0, 200, "Marquee Set 1"], ["Rinku Singh", "Batsman", 0, 200, "Marquee Set 1"], ["Rishabh Pant", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Rohit Sharma", "Batsman", 0, 200, "Marquee Set 1"], ["Ruturaj Gaikwad", "Batsman", 0, 200, "Marquee Set 1"], ["Sam Curran", "All-Rounder", 1, 200, "Marquee Set 1"], ["Sanju Samson", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Shimron Hetmyer", "Batsman", 1, 200, "Marquee Set 1"], ["Shivam Dube", "All-Rounder", 0, 200, "Marquee Set 1"], ["Shreyas Iyer", "Batsman", 0, 200, "Marquee Set 1"], ["Shubman Gill", "Batsman", 0, 200, "Marquee Set 1"], ["Sunil Narine", "All-Rounder", 1, 200, "Marquee Set 1"], ["Suryakumar Yadav", "Batsman", 0, 200, "Marquee Set 1"], ["Tim David", "Batsman", 1, 200, "Marquee Set 1"], ["Travis Head", "Batsman", 1, 200, "Marquee Set 1"], ["Trent Boult", "Bowler", 1, 200, "Marquee Set 1"], ["Varun Chakravarthy", "Bowler", 0, 200, "Marquee Set 1"], ["Virat Kohli", "Batsman", 0, 200, "Marquee Set 1"], ["Will Jacks", "All-Rounder", 1, 200, "Marquee Set 1"], ["Yashasvi Jaiswal", "Batsman", 0, 200, "Marquee Set 1"], ["Yuzvendra Chahal", "Bowler", 0, 200, "Marquee Set 1"], ["Noor Ahmed", "Bowler", 1, 200, "Marquee Set 1"], ["Abhishek Sharma", "All-Rounder", 0, 100, "Set 1"], ["Avesh Khan", "Bowler", 0, 100, "Set 1"], ["Azmatullah Omarzai", "All-Rounder", 1, 100, "Set 1"], ["Deepak Chahar", "Bowler", 0, 100, "Set 1"], ["Dhruv Jurel", "Wicket-Keeper", 0, 100, "Set 1"], ["Glenn Phillips", "Batsman", 1, 100, "Set 1"], ["Harshal Patel", "Bowler", 0, 100, "Set 1"], ["Khaleel Ahmed", "Bowler", 0, 100, "Set 1"], ["Krunal Pandya", "All-Rounder", 0, 100, "Set 1"], ["Mayank Yadav", "Bowler", 0, 100, "Set 1"], ["Mitchell Santner", "All-Rounder", 1, 100, "Set 1"], ["Prasidh Krishna", "Bowler", 0, 100, "Set 1"], ["Rajat Patidar", "Batsman", 0, 100, "Set 1"], ["Riyan Parag", "All-Rounder", 0, 100, "Set 1"], ["Romario Shepherd", "All-Rounder", 1, 100, "Set 1"], ["Rovman Powell", "Batsman", 1, 100, "Set 1"], ["Sai Sudharsan", "Batsman", 0, 100, "Set 1"], ["Shardul Thakur", "All-Rounder", 0, 100, "Set 1"], ["Sherfane Rutherford", "Batsman", 1, 100, "Set 1"], ["T. Natarajan", "Bowler", 0, 100, "Set 1"], ["Tilak Varma", "Batsman", 0, 100, "Set 1"], ["Tristan Stubbs", "Batsman", 1, 100, "Set 1"], ["Washington Sundar", "All-Rounder", 0, 100, "Set 1"], ["Allah Ghazanfar", "Bowler", 1, 75, "Set 2"], ["Brydon Carse", "All-Rounder", 1, 75, "Set 2"], ["Corbin Bosch", "All-Rounder", 1, 75, "Set 2"], ["Dewald Brevis", "Batsman", 1, 75, "Set 2"], ["Dushmantha Chameera", "Bowler", 1, 75, "Set 2"], ["Jacob Bethell", "All-Rounder", 1, 75, "Set 2"], ["Jamie Overton", "All-Rounder", 1, 75, "Set 2"], ["Jaydev Unadkat", "Bowler", 0, 75, "Set 2"], ["Kamindu Mendis", "All-Rounder", 1, 75, "Set 2"], ["Matthew Breetzke", "Batsman", 1, 75, "Set 2"], ["Mitchell Owen", "Batsman", 1, 75, "Set 2"], ["Mukesh Kumar", "Bowler", 0, 75, "Set 2"], ["Nandre Burger", "Bowler", 1, 75, "Set 2"], ["Nathan Ellis", "Bowler", 1, 75, "Set 2"], ["Nitish Rana", "Batsman", 0, 75, "Set 2"], ["Nuwan Thushara", "Bowler", 1, 75, "Set 2"], ["Rahul Tewatia", "All-Rounder", 0, 75, "Set 2"], ["Ryan Rickelton", "Wicket-Keeper", 1, 75, "Set 2"], ["Xavier Bartlett", "Bowler", 1, 75, "Set 2"], ["Ajinkya Rahane", "Batsman", 0, 50, "Set 3"], ["Devdutt Padikkal", "Batsman", 0, 50, "Set 3"], ["Harshit Rana", "Bowler", 0, 50, "Set 3"], ["Ishant Sharma", "Bowler", 0, 50, "Set 3"], ["Jayant Yadav", "All-Rounder", 0, 50, "Set 3"], ["Jitesh Sharma", "Wicket-Keeper", 0, 50, "Set 3"], ["Karun Nair", "Batsman", 0, 50, "Set 3"], ["Manish Pandey", "Batsman", 0, 50, "Set 3"], ["Nitish Kumar Reddy", "All-Rounder", 0, 50, "Set 3"], ["R. Sai Kishore", "Bowler", 0, 50, "Set 3"], ["Sandeep Sharma", "Bowler", 0, 50, "Set 3"], ["Shahbaz Ahmed", "All-Rounder", 0, 50, "Set 3"], ["Shahrukh Khan", "Batsman", 0, 50, "Set 3"], ["Tushar Deshpande", "Bowler", 0, 50, "Set 3"], ["Umran Malik", "Bowler", 0, 50, "Set 3"], ["Yash Dayal", "Bowler", 0, 50, "Set 3"], ["Abdul Samad", "All-Rounder", 0, 30, "Set 4"]
+    ];
+
+    function loadRawArrayIntoDeck(arr) {
+      const formatted = arr.map(item => ({
+        name: item[0],
+        role: item[1],
+        overseas: Boolean(item[2]),
+        bp: item[3],
+        set: item[4]
+      }));
+      AUCTION_DECK = buildAuctionDeck(formatted);
+    }
+    loadRawArrayIntoDeck(EMBEDDED_DATABASE);
+
+    /* ========================================================
+       3. RECOVERY & LOCAL STORAGE
+       ======================================================== */
+    function saveCurrentSession() {
+      const session = {
+        roomId,
+        teamId: localTeamId,
+        ownerName: localOwnerName,
+        isHost
+      };
+      localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(session));
+
+      if (isHost) {
+        const statePayload = {
+          teamsState,
+          currentPlayerIndex,
+          timerValue,
+          configuredTimerDuration,
+          AUCTION_DECK,
+          secretBidsMap,
+          isAuctionEnded
+        };
+        localStorage.setItem(STORAGE_KEY_STATE + '_' + roomId, JSON.stringify(statePayload));
+      }
+    }
+
+    function tryRestoreSavedHostState() {
+      const saved = localStorage.getItem(STORAGE_KEY_STATE + '_' + roomId);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          teamsState = parsed.teamsState || teamsState;
+          currentPlayerIndex = parsed.currentPlayerIndex || 0;
+          configuredTimerDuration = parsed.configuredTimerDuration || 15;
+          if (parsed.AUCTION_DECK && parsed.AUCTION_DECK.length > 0) {
+            AUCTION_DECK = parsed.AUCTION_DECK;
+          }
+          if (parsed.secretBidsMap) {
+            secretBidsMap = parsed.secretBidsMap;
+          }
+          if (parsed.isAuctionEnded) {
+            renderEndGameScreen();
+          }
+          logMessage('feed', 'System', 'Resumed previous auction state seamlessly from storage.');
+        } catch(e){}
+      }
+    }
+
+    /* ========================================================
+       4. AUDIO & HAPTICS
+       ======================================================== */
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(freq = 600, duration = 0.08, type = 'sine') {
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function triggerHaptic(type = 'short') {
+      if ('vibrate' in navigator) {
+        if (type === 'bid') navigator.vibrate([40, 30, 40]);
+        else if (type === 'sold') navigator.vibrate([100, 50, 150]);
+        else navigator.vibrate(25);
+      }
+    }
+
+    /* ========================================================
+       5. PEERJS RECONNECT NETWORKING
+       ======================================================== */
+    let peer = null;
+    let hostConnection = null;
+    let clientConnections = [];
+
+    function initNetwork() {
+      const dot = document.getElementById('networkStatusDot');
+      dot.className = 'status-dot reconnecting';
+
+      const savedHost = (cachedSession && cachedSession.roomId === roomId && cachedSession.isHost);
+      const isNewRoomUrl = !urlParams.get('room');
+
+      if (savedHost || isNewRoomUrl) {
+        isHost = true;
+        tryRestoreSavedHostState();
+
+        peer = new Peer(roomId, { debug: 1 });
+        peer.on('open', (id) => {
+          dot.className = 'status-dot';
+          document.getElementById('roomStatusText').innerText = `Room: ${roomId.toUpperCase()} (Host)`;
+          logMessage('feed', 'System', `Host connection active. Invite managers with the invite link.`);
+          document.getElementById('hostEndAuctionBtn').style.display = 'inline-block';
+          saveCurrentSession();
+        });
+
+        peer.on('error', (err) => {
+          if (err.type === 'unavailable-id') {
+            isHost = false;
+            document.getElementById('hostEndAuctionBtn').style.display = 'none';
+            connectAsClient();
+          }
+        });
+
+        peer.on('connection', conn => setupHostSideConnection(conn));
+      } else {
+        document.getElementById('hostEndAuctionBtn').style.display = 'none';
+        connectAsClient();
+      }
+    }
+
+    function connectAsClient() {
+      isHost = false;
+      const dot = document.getElementById('networkStatusDot');
+      dot.className = 'status-dot reconnecting';
+
+      const clientPeerId = roomId + '-mgr-' + Math.random().toString(36).substring(2, 6);
+      peer = new Peer(clientPeerId, { debug: 1 });
+
+      peer.on('open', () => {
+        document.getElementById('roomStatusText').innerText = `Room: ${roomId.toUpperCase()}`;
+        attemptConnectToHost();
+      });
+
+      peer.on('error', () => {
+        setTimeout(attemptConnectToHost, 2000);
+      });
+    }
+
+    function attemptConnectToHost() {
+      const dot = document.getElementById('networkStatusDot');
+      hostConnection = peer.connect(roomId, { reliable: true });
+
+      hostConnection.on('open', () => {
+        dot.className = 'status-dot';
+        logMessage('feed', 'System', `Connected to war room host! Resuming session...`);
+        if (localTeamId) {
+          hostConnection.send({
+            type: 'REJOIN_WAR_ROOM',
+            teamId: localTeamId,
+            ownerName: localOwnerName
+          });
+        }
+      });
+
+      hostConnection.on('data', data => handleNetworkPayload(data));
+
+      hostConnection.on('close', () => {
+        dot.className = 'status-dot reconnecting';
+        logMessage('feed', 'System', `Connection dropped. Reconnecting...`);
+        setTimeout(attemptConnectToHost, 1500);
+      });
+    }
+
+    function setupHostSideConnection(conn) {
+      clientConnections.push(conn);
+      conn.on('open', () => {
+        conn.send({
+          type: 'SYNC_FULL_STATE',
+          teamsState,
+          currentPlayerIndex,
+          timerValue,
+          configuredTimerDuration,
+          AUCTION_DECK,
+          secretBidsMap,
+          isAuctionEnded
+        });
+      });
+
+      conn.on('data', data => {
+        if (data.type === 'REJOIN_WAR_ROOM') {
+          if (teamsState[data.teamId]) {
+            teamsState[data.teamId].ownerName = data.ownerName || "Manager";
+            teamsState[data.teamId].isLocalUser = false;
+            renderTeamsList();
+            logMessage('feed', data.teamId, `${teamsState[data.teamId].ownerName} reconnected to the war room.`);
+            saveCurrentSession();
+            broadcast({
+              type: 'SYNC_FULL_STATE',
+              teamsState,
+              currentPlayerIndex,
+              timerValue,
+              configuredTimerDuration,
+              AUCTION_DECK,
+              secretBidsMap,
+              isAuctionEnded
+            });
+          }
+        } else {
+          handleNetworkPayload(data);
+        }
+      });
+    }
+
+    function broadcast(payload) {
+      if (isHost) {
+        clientConnections.forEach(c => { if (c.open) c.send(payload); });
+      } else if (hostConnection && hostConnection.open) {
+        hostConnection.send(payload);
+      }
+    }
+
+    function handleNetworkPayload(data) {
+      if (data.type === 'SECRET_BID_SUBMITTED') {
+        secretBidsMap[data.teamId] = data.amount;
+        renderTeamsList();
+        updateSealedCountUI();
+        const bidderName = teamsState[data.teamId]?.ownerName || data.teamId;
+        logMessage('feed', data.teamId, `${bidderName} submitted a sealed secret bid! 🔒`);
+        if (isHost) {
+          saveCurrentSession();
+          broadcast(data);
+        }
+      } else if (data.type === 'TIMER_CONFIG_CHANGED') {
+        configuredTimerDuration = data.duration;
+        document.getElementById('hostTimerDuration').value = data.duration;
+        logMessage('feed', 'Host', `Adjusted countdown timer to ${data.duration} seconds.`);
+      } else if (data.type === 'CHAT') {
+        logMessage('chat', data.sender, data.text);
+        if (isHost) broadcast(data);
+      } else if (data.type === 'AUCTION_CONCLUDED') {
+        renderEndGameScreen();
+      } else if (data.type === 'AUCTION_RESUMED') {
+        closeEndGameScreen();
+      } else if (data.type === 'SYNC_FULL_STATE') {
+        teamsState = data.teamsState;
+        currentPlayerIndex = data.currentPlayerIndex;
+        timerValue = data.timerValue;
+        configuredTimerDuration = data.configuredTimerDuration;
+        isAuctionEnded = Boolean(data.isAuctionEnded);
+        if (data.AUCTION_DECK && data.AUCTION_DECK.length > 0) {
+          AUCTION_DECK = data.AUCTION_DECK;
+        }
+        if (data.secretBidsMap) {
+          secretBidsMap = data.secretBidsMap;
+        }
+
+        if (localTeamId && teamsState[localTeamId]) {
+          teamsState[localTeamId].isLocalUser = true;
+          teamsState[localTeamId].ownerName = localOwnerName || teamsState[localTeamId].ownerName || "Manager";
+          if (secretBidsMap[localTeamId]) {
+            document.getElementById('mySecretBidText').innerText = formatCurrency(secretBidsMap[localTeamId]);
+            document.getElementById('lockBidBtn').innerText = "UPDATE SECRET BID";
+          }
+        }
+        renderAll();
+        if (isAuctionEnded) {
+          renderEndGameScreen();
+        }
+      }
+    }
+
+    function copyInviteLink() {
+      const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+      navigator.clipboard.writeText(inviteUrl);
+      triggerHaptic();
+      alert(`Invite link copied to clipboard!\nShare this with managers to rejoin the same room:\n${inviteUrl}`);
+    }
+
+    function updateHostTimerDuration(newVal) {
+      configuredTimerDuration = parseInt(newVal, 10);
+      broadcast({ type: 'TIMER_CONFIG_CHANGED', duration: configuredTimerDuration });
+      logMessage('feed', 'Host', `Timer duration updated to ${configuredTimerDuration}s.`);
+      saveCurrentSession();
+    }
+
+    /* ========================================================
+       6. DRAG-AND-DROP EXCEL DB IMPORTER
+       ======================================================== */
+    function handleExcelUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(firstSheet);
+
+          if (json.length > 0) {
+            const parsedList = json.map(r => {
+              const bpRaw = String(r['Base Price'] || '30 L');
+              let bpLakhs = 30;
+              if (bpRaw.includes('Cr')) {
+                bpLakhs = Math.round(parseFloat(bpRaw.replace('Cr', '')) * 100);
+              } else if (bpRaw.includes('L')) {
+                bpLakhs = Math.round(parseFloat(bpRaw.replace('L', '')));
+              }
+              return {
+                name: String(r['Player'] || 'Unknown').trim(),
+                role: String(r['Role'] || 'All-Rounder').trim(),
+                overseas: String(r['Overseas'] || '').trim().toLowerCase() === 'yes',
+                bp: bpLakhs,
+                set: String(r['Set'] || 'Open Pool').trim()
+              };
+            });
+
+            AUCTION_DECK = buildAuctionDeck(parsedList);
+            currentPlayerIndex = 0;
+            logMessage('feed', 'System', `Imported ${AUCTION_DECK.length} players! Sets follow exact Excel order with randomized player lots.`);
+            saveCurrentSession();
+            startPlayerAuction(0);
+          }
+        } catch (err) {
+          alert('Could not parse Excel. Ensure sheets contain: Player, Role, Overseas, Base Price, Set');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    /* ========================================================
+       7. SECRET HAMMER ENGINE (SMART 18-ROSTER RESERVE & REVEAL)
+       ======================================================== */
+    function formatCurrency(lakhs) {
+      if (lakhs >= 100) return `₹${(lakhs / 100).toFixed(2)} Cr`;
+      return `₹${lakhs} Lakhs`;
+    }
+
+    function calculateMaxAffordableBid(team) {
+      const slotsNeeded = EXACT_SQUAD_SIZE - team.squad.length;
+      if (slotsNeeded <= 0) return 0;
+      const slotsRemainingAfterThis = slotsNeeded - 1;
+      const mandatoryReservedPurse = slotsRemainingAfterThis * MIN_BASE_PRICE_LAKHS;
+      const maxBid = team.purse - mandatoryReservedPurse;
+      return Math.max(0, maxBid);
+    }
+
+    function startPlayerAuction(playerIdx) {
+      if (isAuctionEnded) return;
+      clearInterval(timerInterval);
+
+      if (playerIdx >= AUCTION_DECK.length) {
+        triggerHostEndGame();
+        return;
+      }
+
+      currentPlayerIndex = playerIdx;
+      const player = AUCTION_DECK[currentPlayerIndex];
+
+      secretBidsMap = {};
+      timerValue = configuredTimerDuration;
+      document.getElementById('bidsRevealPanel').style.display = 'none';
+      document.getElementById('mySecretBidText').innerText = "None";
+      document.getElementById('secretBidInput').value = (player.bp / 100).toFixed(2);
+      document.getElementById('lockBidBtn').disabled = false;
+      document.getElementById('lockBidBtn').innerText = "LOCK SECRET BID";
+
+      updateSpotlightUI();
+      renderTeamsList();
+      resetTimerRing();
+      triggerHaptic('short');
+
+      logMessage('feed', 'Hammer', `Under the Hammer: ${player.name} (${player.role}, ${player.overseas ? 'Overseas' : 'India'}) [${player.set}] - Base: ${formatCurrency(player.bp)}`);
+
+      saveCurrentSession();
+
+      timerInterval = setInterval(() => {
+        timerValue--;
+        updateTimerDisplay();
+
+        if (timerValue <= 5 && timerValue > 0) {
+          playBeep(480, 0.08);
+          triggerHaptic('short');
+        }
+
+        if (aiSimulationEnabled && timerValue === Math.floor(configuredTimerDuration / 2)) {
+          simulateAISecretBids();
+        }
+
+        if (timerValue <= 0) {
+          clearInterval(timerInterval);
+          revealSecretBidsAndDecideWinner();
+        }
+      }, 1000);
+    }
+
+    function updateTimerDisplay() {
+      const ring = document.getElementById('timerRing');
+      const text = document.getElementById('timerNumber');
+      text.innerText = timerValue;
+
+      const circumference = 283;
+      const offset = circumference - (timerValue / configuredTimerDuration) * circumference;
+      ring.style.strokeDashoffset = offset;
+
+      if (timerValue <= 4) ring.style.stroke = 'var(--accent-red)';
+      else if (timerValue <= Math.floor(configuredTimerDuration / 2)) ring.style.stroke = 'var(--accent-gold)';
+      else ring.style.stroke = 'var(--accent-cyan)';
+    }
+
+    function resetTimerRing() {
+      const ring = document.getElementById('timerRing');
+      ring.style.strokeDashoffset = '0';
+      ring.style.stroke = 'var(--accent-cyan)';
+      document.getElementById('timerNumber').innerText = configuredTimerDuration;
+    }
+
+    function quickFillBid(extraCr) {
+      const player = AUCTION_DECK[currentPlayerIndex];
+      const baseCr = player.bp / 100;
+      const input = document.getElementById('secretBidInput');
+      input.value = (baseCr + extraCr).toFixed(2);
+    }
+
+    function handleLockSecretBid() {
+      if (!localTeamId) {
+        promptSwitchFranchise();
+        return;
+      }
+
+      const team = teamsState[localTeamId];
+      const player = AUCTION_DECK[currentPlayerIndex];
+
+      if (team.squad.length >= EXACT_SQUAD_SIZE) {
+        alert(`Roster Limit Reached: ${team.name} already has reached the mandatory 18 players!`);
+        return;
+      }
+
+      if (player.overseas && team.overseasCount >= MAX_OVERSEAS) {
+        alert(`Overseas Limit: ${team.name} already has maximum ${MAX_OVERSEAS} overseas players!`);
+        return;
+      }
+
+      const rawVal = parseFloat(document.getElementById('secretBidInput').value);
+      if (isNaN(rawVal) || rawVal <= 0) {
+        alert("Please enter a valid bid amount.");
+        return;
+      }
+
+      const bidInLakhs = Math.round(rawVal * 100);
+
+      if (bidInLakhs < player.bp) {
+        alert(`Rule Violation: Secret bid cannot be lower than Base Price (${formatCurrency(player.bp)})!`);
+        return;
+      }
+
+      const maxBid = calculateMaxAffordableBid(team);
+      if (bidInLakhs > maxBid) {
+        const slotsLeft = EXACT_SQUAD_SIZE - team.squad.length - 1;
+        alert(`Purse Reserve Warning: Your maximum allowed bid is ${formatCurrency(maxBid)}.\nYou must reserve at least ${formatCurrency(slotsLeft * MIN_BASE_PRICE_LAKHS)} to complete your required 18-player squad!`);
+        return;
+      }
+
+      secretBidsMap[localTeamId] = bidInLakhs;
+      document.getElementById('mySecretBidText').innerText = formatCurrency(bidInLakhs);
+      document.getElementById('lockBidBtn').innerText = "UPDATE SECRET BID";
+      triggerHaptic('bid');
+      playBeep(820, 0.1, 'triangle');
+
+      updateSealedCountUI();
+      renderTeamsList();
+      saveCurrentSession();
+
+      broadcast({
+        type: 'SECRET_BID_SUBMITTED',
+        teamId: localTeamId,
+        amount: bidInLakhs
+      });
+    }
+
+    function simulateAISecretBids() {
+      const player = AUCTION_DECK[currentPlayerIndex];
+
+      Object.values(teamsState).forEach(t => {
+        if (t.id === localTeamId) return;
+        if (t.squad.length >= EXACT_SQUAD_SIZE) return;
+        if (player.overseas && t.overseasCount >= MAX_OVERSEAS) return;
+
+        const maxBid = calculateMaxAffordableBid(t);
+        if (maxBid < player.bp) return;
+
+        if (Math.random() < 0.55) {
+          const markupMultiplier = 1.0 + (Math.random() * 0.45);
+          let chosenBid = Math.round(player.bp * markupMultiplier);
+          if (chosenBid > maxBid) chosenBid = maxBid;
+          if (chosenBid >= player.bp) {
+            secretBidsMap[t.id] = chosenBid;
+          }
+        }
+      });
+
+      updateSealedCountUI();
+      renderTeamsList();
+      saveCurrentSession();
+    }
+
+    function updateSealedCountUI() {
+      const count = Object.keys(secretBidsMap).length;
+      document.getElementById('sealedCountText').innerText = `${count} Team${count === 1 ? '' : 's'}`;
+    }
+
+    function revealSecretBidsAndDecideWinner() {
+      document.getElementById('lockBidBtn').disabled = true;
+      const player = AUCTION_DECK[currentPlayerIndex];
+
+      const bidsArray = Object.entries(secretBidsMap).map(([teamId, amount]) => ({
+        teamId,
+        amount,
+        teamName: teamsState[teamId].name,
+        color: teamsState[teamId].color,
+        ownerName: teamsState[teamId].ownerName
+      }));
+
+      bidsArray.sort((a, b) => b.amount - a.amount);
+
+      const revealPanel = document.getElementById('bidsRevealPanel');
+      const revealList = document.getElementById('revealListContent');
+      revealPanel.style.display = 'block';
+
+      if (bidsArray.length === 0) {
+        revealList.innerHTML = `<div style="text-align:center; padding:10px; color:var(--text-muted);">No secret bids submitted at or above Base Price (${formatCurrency(player.bp)}). Player goes UNSOLD.</div>`;
+        logMessage('feed', 'UNSOLD', `${player.name} went UNSOLD (zero secret bids submitted).`);
+      } else {
+        revealList.innerHTML = bidsArray.slice(0, 3).map((b, idx) => `
+          <div class="reveal-item rank-${idx + 1}">
+            <div>
+              <span style="font-weight:bold; margin-right:6px;">#${idx + 1}</span>
+              <span style="color:${b.color}; font-weight:700;">${b.teamName}</span>
+              <span style="font-size:0.75rem; color:var(--text-muted); margin-left:4px;">(${b.ownerName})</span>
+            </div>
+            <div style="font-family:'Teko'; font-size:1.4rem;">${formatCurrency(b.amount)}</div>
+          </div>
+        `).join('');
+
+        const winner = bidsArray[0];
+        const winningTeam = teamsState[winner.teamId];
+
+        winningTeam.purse -= winner.amount;
+        winningTeam.squad.push({ ...player, pricePaid: winner.amount });
+        if (player.overseas) winningTeam.overseasCount++;
+
+        playBeep(1046, 0.4, 'square');
+        triggerHaptic('sold');
+        confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+
+        logMessage('feed', 'SOLD', `🏆 SOLD! ${player.name} awarded to ${winningTeam.name} (${winningTeam.ownerName}) for top bid of ${formatCurrency(winner.amount)}!`);
+      }
+
+      renderTeamsList();
+      saveCurrentSession();
+
+      setTimeout(() => {
+        startPlayerAuction(currentPlayerIndex + 1);
+      }, 4500);
+    }
+
+    function passPlayer() {
+      clearInterval(timerInterval);
+      revealSecretBidsAndDecideWinner();
+    }
+
+    function toggleAutoSim() {
+      aiSimulationEnabled = !aiSimulationEnabled;
+      document.getElementById('autoSimToggle').innerText = `AI Bids: ${aiSimulationEnabled ? 'ON' : 'OFF'}`;
+    }
+
+    /* ========================================================
+       8. UNIVERSAL SQUAD EXPLORER (LIVE FOR EVERYONE)
+       ======================================================== */
+    function openAllSquadsExplorer(defaultTeamId = null) {
+      if (defaultTeamId) {
+        selectedExplorerTeamId = defaultTeamId;
+      } else if (localTeamId) {
+        selectedExplorerTeamId = localTeamId;
+      }
+
+      renderSquadExplorerTabs();
+      renderSquadExplorerContent();
+      document.getElementById('squadExplorerModal').style.display = 'flex';
+    }
+
+    function closeSquadExplorerModal() {
+      document.getElementById('squadExplorerModal').style.display = 'none';
+    }
+
+    function renderSquadExplorerTabs() {
+      const container = document.getElementById('squadNavTabs');
+      container.innerHTML = '';
+
+      TEAMS_CONFIG.forEach(t => {
+        const teamObj = teamsState[t.id];
+        const btn = document.createElement('button');
+        btn.className = `squad-tab-btn ${t.id === selectedExplorerTeamId ? 'active' : ''}`;
+        btn.innerHTML = `${t.id} <span style="font-size:0.75rem; opacity:0.8;">(${teamObj.squad.length}/18)</span>`;
+        btn.onclick = () => {
+          selectedExplorerTeamId = t.id;
+          renderSquadExplorerTabs();
+          renderSquadExplorerContent();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function renderSquadExplorerContent() {
+      const team = teamsState[selectedExplorerTeamId];
+      const headerCard = document.getElementById('squadExplorerHeaderCard');
+      const content = document.getElementById('squadExplorerContent');
+
+      headerCard.innerHTML = `
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="team-logo-badge" style="background:${team.color}; color:${team.textColor}; width:44px; height:44px; font-size:1.4rem;">
+            ${team.id}
+          </div>
+          <div>
+            <div style="font-weight:700; font-size:1.1rem; color:#fff;">${team.name}</div>
+            <div style="font-size:0.78rem; color:var(--text-muted);">Owner: <strong style="color:var(--accent-gold);">${team.ownerName}</strong> ${team.id === localTeamId ? '(You)' : ''}</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:12px; font-size:0.85rem;">
+          <span class="stat-pill">Purse Left: <strong style="color:var(--accent-green);">${formatCurrency(team.purse)}</strong></span>
+          <span class="stat-pill">Squad: <strong>${team.squad.length}/18</strong></span>
+          <span class="stat-pill">✈️ <strong>${team.overseasCount}/6</strong></span>
+        </div>
+      `;
+
+      if (team.squad.length === 0) {
+        content.innerHTML = `<div style="text-align:center; padding:32px; color:var(--text-muted);">No players acquired by ${team.name} yet. Full ₹120 Cr purse intact.</div>`;
+      } else {
+        content.innerHTML = team.squad.map((p, idx) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.05); background:${idx % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent'};">
+            <div>
+              <strong style="color:#fff;">${idx + 1}. ${p.name}</strong>
+              <span style="font-size:0.8rem; color:var(--text-muted); margin-left:8px;">${p.role} ${p.overseas ? '<span style="color:var(--accent-gold); font-weight:600;">(✈️ Overseas)</span>' : '<span style="color:var(--accent-green); font-weight:600;">(🇮🇳 India)</span>'} [${p.set}]</span>
+            </div>
+            <div style="font-family:'Teko'; font-size:1.4rem; color:var(--accent-green);">${formatCurrency(p.pricePaid)}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    /* ========================================================
+       9. GRAND FINALE END GAME PAGE & EXPORT
+       ======================================================== */
+    function triggerHostEndGame() {
+      if (!isHost) return;
+      if (!confirm("Are you sure you want to officially end the IPL Mega Auction and reveal final squads?")) return;
+
+      clearInterval(timerInterval);
+      isAuctionEnded = true;
+      saveCurrentSession();
+
+      broadcast({ type: 'AUCTION_CONCLUDED' });
+      renderEndGameScreen();
+    }
+
+    function renderEndGameScreen() {
+      isAuctionEnded = true;
+      clearInterval(timerInterval);
+
+      document.getElementById('endGameScreen').style.display = 'block';
+      if (isHost) {
+        document.getElementById('resumeAuctionBtn').style.display = 'inline-block';
+      }
+
+      let totalSold = 0;
+      let totalMoneySpent = 0;
+      let highestBuy = { name: "None", pricePaid: 0, teamName: "None", ownerName: "None" };
+
+      Object.values(teamsState).forEach(t => {
+        totalSold += t.squad.length;
+        t.squad.forEach(p => {
+          totalMoneySpent += p.pricePaid;
+          if (p.pricePaid > highestBuy.pricePaid) {
+            highestBuy = { name: p.name, pricePaid: p.pricePaid, teamName: t.name, ownerName: t.ownerName };
+          }
+        });
+      });
+
+      const metricsGrid = document.getElementById('endMetricsGrid');
+      metricsGrid.innerHTML = `
+        <div class="end-metric-card">
+          <div class="end-metric-title">Total Players Signed</div>
+          <div class="end-metric-val">${totalSold}</div>
+        </div>
+        <div class="end-metric-card">
+          <div class="end-metric-title">Total Money Spent</div>
+          <div class="end-metric-val" style="color:var(--accent-green);">${formatCurrency(totalMoneySpent)}</div>
+        </div>
+        <div class="end-metric-card">
+          <div class="end-metric-title">Record Top Buy</div>
+          <div class="end-metric-val" style="font-size:1.8rem; color:var(--accent-cyan); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${highestBuy.name} (${formatCurrency(highestBuy.pricePaid)}) - ${highestBuy.teamName}">
+            ${highestBuy.name} • ${formatCurrency(highestBuy.pricePaid)}
+          </div>
+        </div>
+        <div class="end-metric-card">
+          <div class="end-metric-title">Teams Completed (18/18)</div>
+          <div class="end-metric-val">${Object.values(teamsState).filter(t => t.squad.length === EXACT_SQUAD_SIZE).length} / 10</div>
+        </div>
+      `;
+
+      const squadsGrid = document.getElementById('finalSquadsGrid');
+      squadsGrid.innerHTML = '';
+
+      TEAMS_CONFIG.forEach(t => {
+        const teamObj = teamsState[t.id];
+        const card = document.createElement('div');
+        card.className = 'final-team-card';
+
+        let rosterHtml = '';
+        if (teamObj.squad.length === 0) {
+          rosterHtml = `<div style="padding:20px; text-align:center; color:var(--text-muted); font-size:0.85rem;">No players signed</div>`;
+        } else {
+          rosterHtml = teamObj.squad.map((p, idx) => `
+            <div class="final-player-row">
+              <div>
+                <strong>${idx + 1}. ${p.name}</strong> 
+                <span style="color:var(--text-muted); font-size:0.75rem; margin-left:4px;">${p.overseas ? '✈️' : '🇮🇳'} (${p.role})</span>
+              </div>
+              <div style="font-family:'Teko'; font-size:1.2rem; color:var(--accent-green);">${formatCurrency(p.pricePaid)}</div>
+            </div>
+          `).join('');
+        }
+
+        card.innerHTML = `
+          <div class="final-team-header" style="background:${teamObj.color}22; border-bottom:1.5px solid ${teamObj.color};">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="team-logo-badge" style="width:30px; height:30px; font-size:1.1rem; background:${teamObj.color}; color:${teamObj.textColor};">${teamObj.id}</span>
+              <div>
+                <div style="font-size:0.95rem;">${teamObj.name}</div>
+                <div style="font-size:0.72rem; color:var(--accent-gold);">Owner: ${teamObj.ownerName}</div>
+              </div>
+            </div>
+            <div style="font-size:0.8rem; text-align:right;">
+              <div>Purse Left: <strong>${formatCurrency(teamObj.purse)}</strong></div>
+              <div style="color:var(--text-muted);">Roster: <strong>${teamObj.squad.length}/18</strong> • ✈️ ${teamObj.overseasCount}/6</div>
+            </div>
+          </div>
+          <div style="max-height:380px; overflow-y:auto;">
+            ${rosterHtml}
+          </div>
+        `;
+        squadsGrid.appendChild(card);
+      });
+
+      confetti({ particleCount: 150, spread: 100, origin: { y: 0.4 } });
+      playBeep(987, 0.5, 'square');
+    }
+
+    function resumeAuctionFromEnd() {
+      if (!isHost) return;
+      isAuctionEnded = false;
+      closeEndGameScreen();
+      broadcast({ type: 'AUCTION_RESUMED' });
+      saveCurrentSession();
+      startPlayerAuction(currentPlayerIndex);
+    }
+
+    function closeEndGameScreen() {
+      document.getElementById('endGameScreen').style.display = 'none';
+    }
+
+    function exportFinalSquadsExcel() {
+      const exportRows = [];
+      Object.values(teamsState).forEach(team => {
+        team.squad.forEach((p, idx) => {
+          exportRows.push({
+            "Franchise": team.name,
+            "Team Code": team.id,
+            "Owner": team.ownerName,
+            "Slot": idx + 1,
+            "Player Name": p.name,
+            "Role": p.role,
+            "Overseas": p.overseas ? "Yes" : "No",
+            "Set": p.set,
+            "Price Paid (Cr)": (p.pricePaid / 100).toFixed(2),
+            "Price Paid (Lakhs)": p.pricePaid,
+            "Purse Left (Cr)": (team.purse / 100).toFixed(2)
+          });
+        });
+      });
+
+      if (exportRows.length === 0) {
+        alert("No players have been acquired yet to export.");
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "IPL Final Squads");
+      XLSX.writeFile(workbook, `IPL_AUCTION_FINAL_SQUADS_${roomId}.xlsx`);
+    }
+
+    /* ========================================================
+       10. UI UPDATES & TEAM SELECTION
+       ======================================================== */
+    function updateSpotlightUI() {
+      if (!AUCTION_DECK[currentPlayerIndex]) return;
+      const player = AUCTION_DECK[currentPlayerIndex];
+
+      document.getElementById('deckProgress').innerText = `Player ${currentPlayerIndex + 1} of ${AUCTION_DECK.length}`;
+      document.getElementById('auctionSetHeading').innerText = `${player.set} • Secret Hammer`;
+      document.getElementById('playerSetTag').innerText = player.set;
+      document.getElementById('playerName').innerText = player.name;
+      document.getElementById('playerRole').innerText = player.role;
+      document.getElementById('playerOverseas').innerText = player.overseas ? '✈️ Overseas' : '🇮🇳 India';
+      document.getElementById('playerOverseas').style.color = player.overseas ? '#ffbe1a' : '#00e676';
+      document.getElementById('playerBasePrice').innerText = `Base: ${formatCurrency(player.bp)}`;
+
+      if (localTeamId) {
+        const team = teamsState[localTeamId];
+        const maxAllowed = calculateMaxAffordableBid(team);
+        document.getElementById('maxAffordableHint').innerText = `Your Max Cap: ${formatCurrency(maxAllowed)}`;
+      }
+      updateSealedCountUI();
+    }
+
+    function renderTeamsList() {
+      const container = document.getElementById('teamListContainer');
+      container.innerHTML = '';
+
+      Object.values(teamsState).forEach(team => {
+        const isSelected = team.id === localTeamId;
+        const hasBidLocked = Boolean(secretBidsMap[team.id]);
+
+        const card = document.createElement('div');
+        card.className = `team-card ${isSelected ? 'active-user-team' : ''}`;
+        card.onclick = () => openAllSquadsExplorer(team.id);
+
+        card.innerHTML = `
+          <div class="team-card-top">
+            <div class="team-logo-badge" style="background:${team.color}; color:${team.textColor};">
+              ${team.id}
+            </div>
+            <div class="team-meta">
+              <div class="team-name" style="${isSelected ? 'color:var(--accent-gold);' : ''}">
+                ${team.name}
+              </div>
+              <div class="team-owner">
+                Owner: <strong>${team.ownerName}</strong> ${isSelected ? '(You)' : ''}
+                ${hasBidLocked ? '<span class="secret-lock-pill">🔒 Bid Sealed</span>' : ''}
+              </div>
+            </div>
+          </div>
+          <div class="team-stats">
+            <span class="stat-pill">Purse: <strong>${formatCurrency(team.purse)}</strong></span>
+            <span class="stat-pill">Squad: <strong>${team.squad.length}/18</strong></span>
+            <span class="stat-pill">✈️ <strong>${team.overseasCount}/6</strong></span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderAll() {
+      renderTeamsList();
+      updateSpotlightUI();
+    }
+
+    function renderTeamPicker() {
+      const grid = document.getElementById('teamPickGrid');
+      grid.innerHTML = '';
+
+      TEAMS_CONFIG.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'team-pick-card';
+        card.innerHTML = `
+          <div class="team-logo-badge" style="width:32px; height:32px; font-size:1rem; background:${t.color}; color:${t.textColor};">
+            ${t.id}
+          </div>
+          <div>${t.name}</div>
+        `;
+        card.onclick = () => selectUserTeam(t.id);
+        grid.appendChild(card);
+      });
+    }
+
+    function promptSwitchFranchise() {
+      renderTeamPicker();
+      document.getElementById('ownerNameInput').value = localOwnerName !== "Manager" ? localOwnerName : "";
+      document.getElementById('teamSelectModal').style.display = 'flex';
+    }
+
+    function selectUserTeam(teamId) {
+      const enteredName = document.getElementById('ownerNameInput')?.value.trim() || localOwnerName || "Manager";
+      localOwnerName = enteredName;
+
+      if (localTeamId && teamsState[localTeamId]) {
+        teamsState[localTeamId].isLocalUser = false;
+        teamsState[localTeamId].ownerName = "AI Manager";
+      }
+
+      localTeamId = teamId;
+      teamsState[teamId].ownerName = enteredName;
+      teamsState[teamId].isLocalUser = true;
+
+      document.getElementById('teamSelectModal').style.display = 'none';
+      renderTeamsList();
+      updateSpotlightUI();
+      logMessage('feed', 'Welcome', `${enteredName} assumed command of ${teamsState[teamId].name}! Ready for action.`);
+      saveCurrentSession();
+
+      if (!isHost && hostConnection && hostConnection.open) {
+        hostConnection.send({
+          type: 'REJOIN_WAR_ROOM',
+          teamId: localTeamId,
+          ownerName: enteredName
+        });
+      }
+
+      if (!isAuctionRunning && isHost) {
+        isAuctionRunning = true;
+        startPlayerAuction(0);
+      }
+    }
+
+    function openRosterModal() {
+      openAllSquadsExplorer(localTeamId || 'CSK');
+    }
+
+    /* Chat & Feed */
+    function switchTab(type) {
+      document.getElementById('tabFeed').classList.toggle('active', type === 'feed');
+      document.getElementById('tabChat').classList.toggle('active', type === 'chat');
+      document.getElementById('chatInput').placeholder = type === 'chat' ? 'Type message to war room...' : 'Comments...';
+    }
+
+    function logMessage(channel, sender, text) {
+      const container = document.getElementById('messagesArea');
+      const div = document.createElement('div');
+
+      if (channel === 'feed') {
+        const isSold = sender === 'SOLD';
+        div.className = `msg-item ${isSold ? 'event-sold' : 'event-bid'}`;
+        div.innerHTML = `<div class="msg-sender">${sender}</div><div>${text}</div>`;
+      } else {
+        div.className = 'msg-item';
+        div.innerHTML = `<div class="msg-sender">${sender}</div><div>${text}</div>`;
+      }
+
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const senderName = localTeamId ? `${teamsState[localTeamId].name} (${localOwnerName})` : `Spectator (${localOwnerName})`;
+      logMessage('chat', senderName, text);
+      broadcast({ type: 'CHAT', sender: senderName, text });
+      input.value = '';
+    }
+
+    /* ========================================================
+       11. INITIALIZATION RUNNER
+       ======================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      if (cachedSession && cachedSession.roomId === roomId && cachedSession.teamId) {
+        localTeamId = cachedSession.teamId;
+        localOwnerName = cachedSession.ownerName || "Manager";
+        if (teamsState[localTeamId]) {
+          teamsState[localTeamId].isLocalUser = true;
+          teamsState[localTeamId].ownerName = localOwnerName;
+        }
+        logMessage('feed', 'System', `Restored ${localOwnerName}'s command of ${localTeamId} from session.`);
+      } else {
+        renderTeamPicker();
+        document.getElementById('teamSelectModal').style.display = 'flex';
+      }
+
+      initNetwork();
+      renderTeamsList();
+      updateSpotlightUI();
+
+      if (isHost && !isAuctionRunning && !isAuctionEnded) {
+        isAuctionRunning = true;
+        startPlayerAuction(currentPlayerIndex);
+      }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      saveCurrentSession();
+    });
+  </script>
+</body>
+</html>
