@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>IPL Mega Auction Arena</title>
-  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Work+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <title>IPL Mega Auction Live Hub (Authoritative Engine)</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Work+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <style>
@@ -23,14 +27,16 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
-    body {
-      background: radial-gradient(circle at 50% 10%, #172442 0%, #070b14 75%);
+    html, body {
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 50% 10%, #172442 0%, #070b14 75%);
       color: var(--text-main);
       font-family: 'Work Sans', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
     }
 
+    /* 44px Fixed Top Header */
     header {
       background: rgba(10, 16, 29, 0.98);
       border-bottom: 1px solid var(--panel-border);
@@ -43,20 +49,22 @@
       top: 0;
       z-index: 100;
     }
-    .brand { display: flex; align-items: center; gap: 6px; }
     .brand-title {
       font-family: 'Teko', sans-serif;
-      font-size: 1.5rem;
-      color: var(--accent-gold);
+      font-size: 1.55rem;
       letter-spacing: 0.8px;
+      background: linear-gradient(90deg, #fff, var(--accent-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
     }
-    .header-actions { display: flex; align-items: center; gap: 5px; }
+    .header-actions { display: flex; align-items: center; gap: 4px; }
     .room-badge {
       display: inline-flex;
       align-items: center;
       gap: 5px;
       padding: 4px 8px;
-      background: rgba(255,255,255,0.06);
+      background: rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       font-size: 0.72rem;
       font-weight: 700;
@@ -64,8 +72,10 @@
       cursor: pointer;
     }
     .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); }
+    .status-dot.paused { background: var(--accent-red); }
+
     .header-btn {
-      background: rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.08);
       border: 1px solid var(--panel-border);
       color: #fff;
       padding: 4px 8px;
@@ -73,20 +83,32 @@
       font-size: 0.72rem;
       font-weight: 600;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+      height: 28px;
     }
-    .header-btn.gold { border-color: var(--accent-gold); color: var(--accent-gold); }
+    .header-btn.highlight { border-color: var(--accent-gold); color: var(--accent-gold); }
     .header-btn.danger { border-color: var(--accent-red); color: #ff6b7d; }
 
+    /* Layout */
     .app-container {
-      max-width: 1400px;
+      max-width: 1540px;
       margin: 0 auto;
-      padding: 8px;
+      padding: 6px 8px;
       display: grid;
       grid-template-columns: 1fr 320px;
-      gap: 10px;
+      gap: 8px;
+      height: calc(100vh - 44px);
     }
     @media (max-width: 960px) {
-      .app-container { grid-template-columns: 1fr; }
+      .app-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        padding-bottom: 20px;
+      }
+      .desktop-only-chat { display: none !important; }
     }
 
     .panel {
@@ -98,80 +120,118 @@
       flex-direction: column;
     }
     .panel-header {
-      padding: 6px 12px;
-      background: rgba(255,255,255,0.03);
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.03);
       border-bottom: 1px solid var(--panel-border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.75rem;
       font-weight: 700;
-      color: var(--accent-gold);
       text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.8px;
+      color: var(--accent-gold);
     }
+
     .stage-body {
-      padding: 10px;
+      padding: 8px 10px;
+      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      overflow-y: auto;
     }
 
-    /* Live Franchise HUD */
-    .franchise-hud {
+    /* Pinned Franchise HUD */
+    .franchise-hud-bar {
       width: 100%;
-      max-width: 600px;
-      background: rgba(255, 190, 26, 0.08);
+      max-width: 620px;
+      background: linear-gradient(135deg, rgba(255, 190, 26, 0.12), rgba(0, 240, 255, 0.05));
       border: 1.5px solid var(--accent-gold);
       border-radius: 10px;
-      padding: 8px 10px;
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
-    .hud-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .hud-badge {
-      padding: 2px 8px;
-      border-radius: 5px;
+    .hud-top { display: flex; justify-content: space-between; align-items: center; }
+    .hud-team-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       font-family: 'Teko', sans-serif;
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       font-weight: 700;
+      margin-right: 6px;
     }
-    .hud-stats {
+    .hud-stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      background: rgba(0,0,0,0.45);
-      padding: 6px;
-      border-radius: 8px;
+      gap: 4px;
+      background: rgba(0,0,0,0.5);
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.06);
       text-align: center;
     }
-    .stat-label { font-size: 0.62rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
-    .stat-val { font-family: 'Teko', sans-serif; font-size: 1.5rem; line-height: 1.1; font-weight: 700; }
+    .hud-stat-label { font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; }
+    .hud-stat-val { font-family: 'Teko', sans-serif; font-size: 1.55rem; line-height: 1; font-weight: 700; }
+    .hud-stat-val.purse { color: var(--accent-green); }
+    .hud-stat-val.overseas { color: var(--accent-cyan); }
 
-    /* Spotlight Player Card */
-    .player-card {
+    /* Player Card with Integrated Side Timer */
+    .player-spotlight {
       width: 100%;
-      max-width: 600px;
+      max-width: 620px;
       background: linear-gradient(145deg, #162035, #0d1322);
-      border: 1px solid var(--panel-border);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 12px;
-      padding: 10px 14px;
+      padding: 8px 12px;
+      text-align: center;
+      position: relative;
     }
-    .player-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-    .set-badge {
+    .player-hero-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .player-text-wrap { flex: 1; text-align: left; min-width: 0; }
+    .player-tag {
       display: inline-block;
-      padding: 2px 8px;
+      padding: 1px 6px;
       border-radius: 10px;
       font-size: 0.65rem;
       font-weight: 700;
-      background: rgba(255,190,26,0.15);
+      text-transform: uppercase;
+      background: rgba(255, 190, 26, 0.15);
       color: var(--accent-gold);
       border: 1px solid var(--accent-gold);
+      margin-bottom: 2px;
     }
-    .player-name { font-family: 'Teko', sans-serif; font-size: 2.2rem; line-height: 1; text-transform: uppercase; margin: 2px 0; }
-    .player-sub { font-size: 0.8rem; color: var(--text-muted); }
+    .player-name {
+      font-family: 'Teko', sans-serif;
+      font-size: 2.2rem;
+      line-height: 1;
+      text-transform: uppercase;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-details { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-muted); }
 
-    .timer-box {
-      width: 58px;
-      height: 58px;
+    .timer-wrap {
+      position: relative;
+      width: 62px;
+      height: 62px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .timer-circle-box {
+      width: 100%;
+      height: 100%;
       border-radius: 50%;
       border: 4px solid var(--accent-cyan);
       display: flex;
@@ -180,241 +240,298 @@
       font-family: 'Teko', sans-serif;
       font-size: 2rem;
       font-weight: 700;
-      flex-shrink: 0;
+      color: #fff;
     }
 
-    .sealed-bar {
-      margin-top: 8px;
-      background: rgba(0,0,0,0.45);
-      border-radius: 8px;
-      padding: 6px 10px;
+    .secret-status-box {
+      margin-top: 6px;
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: 6px;
+      padding: 4px 8px;
       display: flex;
       justify-content: space-around;
-      text-align: center;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
+    .secret-val-label { font-size: 0.6rem; text-transform: uppercase; color: var(--text-muted); }
+    .secret-val-amount { font-family: 'Teko', sans-serif; font-size: 1.55rem; color: var(--accent-gold); line-height: 1; }
 
-    /* Controls */
-    .controls-wrap { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 6px; }
-    .bid-row { display: grid; grid-template-columns: 1fr 140px; gap: 6px; }
-    .bid-input {
-      background: rgba(255,255,255,0.08);
+    /* Action Controls */
+    .action-controls { width: 100%; max-width: 620px; display: flex; flex-direction: column; gap: 4px; }
+    .secret-input-bar { display: grid; grid-template-columns: 1fr 140px; gap: 6px; }
+    .secret-num-input {
+      background: rgba(255, 255, 255, 0.08);
       border: 1px solid var(--panel-border);
       border-radius: 8px;
-      padding: 8px;
+      padding: 6px 10px;
       color: #fff;
       font-size: 1.1rem;
       font-weight: 700;
+      outline: none;
       text-align: center;
     }
-    .bid-btn {
+    .bid-action-btn {
+      padding: 6px 10px;
       background: linear-gradient(135deg, #00c853, #009624);
       color: #fff;
       border: none;
       border-radius: 8px;
       font-family: 'Teko', sans-serif;
       font-size: 1.4rem;
-      letter-spacing: 0.8px;
+      letter-spacing: 1px;
       cursor: pointer;
+      line-height: 1.1;
     }
-    .bid-btn:disabled { background: #263042; color: #667; cursor: not-allowed; }
+    .bid-action-btn:disabled { background: #232c3d; color: #55657e; cursor: not-allowed; }
 
-    .quick-row { display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
-    .pill-btn {
-      background: rgba(255,255,255,0.07);
+    .quick-slab-row { display: flex; gap: 4px; justify-content: center; overflow-x: auto; }
+    .slab-btn {
+      background: rgba(255,255,255,0.06);
       border: 1px solid var(--panel-border);
       color: #fff;
-      padding: 4px 8px;
+      padding: 4px 7px;
       border-radius: 5px;
-      font-size: 0.72rem;
-      font-weight: 600;
+      font-size: 0.7rem;
       cursor: pointer;
+      white-space: nowrap;
     }
-    .pill-btn.active { border-color: var(--accent-gold); color: var(--accent-gold); }
+    .slab-btn.active { border-color: var(--accent-gold); color: var(--accent-gold); }
 
-    .host-panel {
+    .host-bar {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
+      gap: 4px;
       justify-content: center;
+      width: 100%;
       align-items: center;
-      padding: 6px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 8px;
+      padding: 4px 6px;
+      background: rgba(0, 0, 0, 0.28);
+      border-radius: 6px;
       border: 1px solid var(--panel-border);
     }
-
-    /* Reveal Box */
-    .reveal-box {
-      width: 100%;
-      max-width: 600px;
-      background: rgba(0,0,0,0.65);
-      border: 1.5px solid var(--accent-gold);
-      border-radius: 10px;
-      padding: 8px;
-      display: none;
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--panel-border);
+      color: #fff;
+      padding: 3px 6px;
+      border-radius: 5px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      font-weight: 600;
     }
+    .btn-danger { background: rgba(255, 51, 75, 0.2); border: 1px solid var(--accent-red); color: #ff6b7d; }
+    .btn-warning { background: rgba(255, 190, 26, 0.18); border: 1px solid var(--accent-gold); color: var(--accent-gold); }
 
-    /* Modals */
+    /* Modals & Overlays */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.88);
-      backdrop-filter: blur(6px);
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
-      padding: 12px;
+      padding: 10px;
     }
     .modal-box {
       background: #131b2e;
       border: 1px solid var(--panel-border);
       border-radius: 14px;
-      padding: 16px;
-      max-width: 540px;
+      padding: 14px;
+      max-width: 560px;
       width: 100%;
       text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
     }
+
     .team-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 6px;
-      margin-top: 8px;
-      max-height: 290px;
+      max-height: 280px;
       overflow-y: auto;
+      margin: 8px 0;
+      padding: 2px;
     }
     .team-btn {
-      padding: 8px;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.05);
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--panel-border);
       color: #fff;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       font-weight: 600;
       font-size: 0.78rem;
       text-align: left;
     }
-    .team-btn:hover { border-color: var(--accent-gold); background: rgba(255,255,255,0.12); }
+    .team-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: var(--accent-gold); }
+    .team-btn.taken { opacity: 0.5; cursor: not-allowed; border-color: transparent; }
 
-    /* Chat */
-    .messages-area { height: 260px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 5px; font-size: 0.78rem; }
-    .msg-item { background: rgba(255,255,255,0.03); padding: 5px 8px; border-radius: 6px; border-left: 3px solid var(--accent-cyan); }
+    .bids-reveal-panel {
+      width: 100%;
+      max-width: 620px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--accent-gold);
+      border-radius: 8px;
+      padding: 8px;
+      display: none;
+    }
+    .pause-banner {
+      display: none;
+      background: rgba(255, 51, 75, 0.2);
+      border: 1px solid var(--accent-red);
+      color: #ff6b7d;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-weight: 700;
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Chat / Logs */
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 0.78rem;
+    }
+    .msg-item {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 5px 8px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent-cyan);
+    }
   </style>
 </head>
 <body>
 
   <header>
-    <div class="brand">
+    <div style="display:flex; align-items:center; gap:6px;">
       <span class="brand-title">🏏 IPL ARENA</span>
     </div>
+
     <div class="header-actions">
-      <div class="room-badge" onclick="copyInviteLink()">
-        <span class="status-dot" id="netDot"></span>
-        <span id="roomText">Room</span>
+      <div class="room-badge" onclick="copyInviteLink()" title="Copy Invite Link">
+        <span class="status-dot" id="networkDot"></span>
+        <span id="roomStatusText">Room</span>
       </div>
-      <button class="header-btn gold" onclick="openSquadsModal()">🛡️ Squads</button>
+      <button class="header-btn highlight" onclick="openMembersModal()" title="View connected managers">👥 Managers (<span id="onlineCount">1</span>/10)</button>
+      <button class="header-btn" onclick="openSquadsModal()">🛡️ Squads</button>
       <button class="header-btn" onclick="openDeckModal()">📋 Lots</button>
-      <button class="header-btn danger" onclick="resetGame()">🚪 New Game</button>
+      <button class="header-btn danger" onclick="resetRoom()">🚪 New Game</button>
     </div>
   </header>
 
   <main class="app-container">
-    <!-- Left: Auction Stage -->
-    <section class="panel">
+    
+    <!-- LEFT: Active Secret Auction Stage -->
+    <section class="panel auction-stage">
       <div class="panel-header">
-        <span id="setHeader">Marquee Set 1</span>
-        <span id="lotProgress">Lot 1 / 153</span>
+        <span id="auctionSetHeading">Lobby • Ready to start</span>
+        <span id="deckProgress">Lot 1 of 153</span>
       </div>
 
       <div class="stage-body">
-        <!-- Live Franchise HUD -->
-        <div class="franchise-hud">
+        
+        <!-- Pinned Franchise HUD -->
+        <div class="franchise-hud-bar" id="myFranchiseHud">
           <div class="hud-top">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span class="hud-badge" id="hudBadge" style="background:#fdb913; color:#002868;">CSK</span>
+            <div style="display:flex; align-items:center;">
+              <span class="hud-team-badge" id="hudTeamBadge" style="background:#fdb913; color:#002868;">CSK</span>
               <div>
-                <div style="font-weight:700; font-size:0.88rem;" id="hudTeamName">Chennai Super Kings</div>
-                <div style="font-size:0.68rem; color:var(--accent-gold);" id="hudOwner">Owner: Manager</div>
+                <div style="font-weight:700; font-size:0.88rem;" id="hudTeamTitle">Chennai Super Kings</div>
+                <div style="font-size:0.68rem; color:var(--accent-gold);" id="hudOwnerTitle">Owner: Avinash (You)</div>
               </div>
             </div>
-            <button class="pill-btn" onclick="openSquadsModal(myTeamId)">My Squad 👁️</button>
+            <button class="btn-secondary" onclick="openSquadsModal(localTeamId)">My Squad 👁️</button>
           </div>
-          <div class="hud-stats">
+
+          <div class="hud-stats-grid">
             <div>
-              <div class="stat-label">Remaining Purse</div>
-              <div class="stat-val" style="color:var(--accent-green);" id="hudPurse">₹120.00 Cr</div>
+              <div class="hud-stat-label">Remaining Purse</div>
+              <div class="hud-stat-val purse" id="hudRemainingPurse">₹120.00 Cr</div>
             </div>
             <div>
-              <div class="stat-label">Squad (18 Req)</div>
-              <div class="stat-val" id="hudSquad">0 / 18</div>
+              <div class="hud-stat-label">Squad (18 Req)</div>
+              <div class="hud-stat-val" id="hudSquadCount">0 / 18</div>
             </div>
             <div>
-              <div class="stat-label">Overseas (Max 6)</div>
-              <div class="stat-val" style="color:var(--accent-cyan);" id="hudOverseas">0 / 6</div>
+              <div class="hud-stat-label">Overseas (Max 6)</div>
+              <div class="hud-stat-val overseas" id="hudOverseasCount">0 / 6</div>
             </div>
           </div>
         </div>
 
-        <div id="pauseBanner" style="display:none; color:var(--accent-red); font-weight:700; font-size:0.78rem;">⏸️ AUCTION PAUSED BY HOST</div>
+        <div class="pause-banner" id="gamePauseBanner">⏸️ AUCTION PAUSED BY HOST</div>
 
-        <!-- Player Card -->
-        <div class="player-card">
-          <div class="player-row">
-            <div>
-              <span class="set-badge" id="pSet">Marquee Set 1</span>
-              <div class="player-name" id="pName">Jasprit Bumrah</div>
-              <div class="player-sub">
-                <span id="pRole">Bowler</span> • <span id="pNat">🇮🇳 India</span> • <span id="pBase">Base: ₹2.00 Cr</span>
+        <!-- Spotlight Player Card With Integrated Side Timer -->
+        <div class="player-spotlight" id="spotlightCard">
+          <div class="player-hero-row">
+            <div class="player-text-wrap">
+              <span id="playerSetTag" class="player-tag">Marquee Set 1</span>
+              <div id="playerName" class="player-name">Player Name</div>
+              <div class="player-details">
+                <span id="playerRole">Role</span> • <span id="playerOverseas">India</span> • <span id="playerBasePrice">Base: ₹2.00 Cr</span>
               </div>
             </div>
-            <div class="timer-box" id="timerDisplay">15</div>
+
+            <!-- Compact Integrated Circular Timer -->
+            <div class="timer-wrap">
+              <div class="timer-circle-box" id="timerNumber">15</div>
+            </div>
           </div>
 
-          <div class="sealed-bar">
+          <div class="secret-status-box">
             <div>
-              <div class="stat-label">Your Locked Secret Bid</div>
-              <div class="stat-val" style="color:var(--accent-gold);" id="myBidDisplay">None</div>
+              <div class="secret-val-label">Your Locked Secret Bid</div>
+              <div id="mySecretBidText" class="secret-val-amount">None</div>
             </div>
             <div>
-              <div class="stat-label">Total Bids Sealed</div>
-              <div class="stat-val" style="color:var(--accent-cyan);" id="sealedCountDisplay">0 Teams</div>
+              <div class="secret-val-label">Total Bids Sealed</div>
+              <div id="sealedCountText" style="font-size:1.35rem; font-family:'Teko'; color:var(--accent-cyan);">0 Teams</div>
             </div>
           </div>
         </div>
 
-        <!-- Reveal Box -->
-        <div class="reveal-box" id="revealBox">
-          <div style="font-family:'Teko'; font-size:1.3rem; color:var(--accent-gold); text-align:center;">🔨 BIDS REVEALED (TOP 3)</div>
-          <div id="revealList"></div>
+        <!-- Post-Timer Reveal Board -->
+        <div class="bids-reveal-panel" id="bidsRevealPanel">
+          <div style="font-family:'Teko'; font-size:1.25rem; color:var(--accent-gold); text-align:center;">🔨 BIDS REVEALED (TOP 3)</div>
+          <div id="revealListContent"></div>
         </div>
 
-        <!-- Bidding & Host Controls -->
-        <div class="controls-wrap" id="controlsArea">
-          <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted);">
-            <span>Enter Secret Bid (Cr)</span>
-            <span id="maxCapText" style="color:var(--accent-gold); font-weight:700;">Max Allowed: ₹114.90 Cr</span>
+        <!-- Bidding Controls & Host Deck -->
+        <div class="action-controls" id="biddingControlsArea">
+          <div style="display:flex; justify-content:space-between; font-size:0.68rem; color:var(--text-muted);">
+            <span>Enter Secret Bid (in Crores)</span>
+            <span id="maxAffordableHint" style="color:var(--accent-gold); font-weight:600;">Max Bid Allowed: ₹114.90 Cr</span>
           </div>
 
-          <div class="bid-row">
-            <input type="number" id="bidInput" step="0.05" class="bid-input" value="2.00" />
-            <button class="bid-btn" id="lockBtn" onclick="lockSecretBid()">LOCK SECRET BID</button>
+          <div class="secret-input-bar">
+            <input type="number" id="secretBidInput" step="0.05" class="secret-num-input" placeholder="Amount (Cr)" value="2.00" />
+            <button id="lockBidBtn" class="bid-action-btn" onclick="handleLockSecretBid()">LOCK SECRET BID</button>
           </div>
 
-          <div class="quick-row">
-            <button class="pill-btn" onclick="setBidOffset(0)">Base Price</button>
-            <button class="pill-btn" onclick="setBidOffset(0.2)">+20 L</button>
-            <button class="pill-btn" onclick="setBidOffset(0.5)">+50 L</button>
-            <button class="pill-btn" onclick="setBidOffset(1.0)">+1.0 Cr</button>
-            <button class="pill-btn" onclick="setBidOffset(2.0)">+2.0 Cr</button>
+          <div class="quick-slab-row">
+            <button class="slab-btn" onclick="quickFillBid(0)">Base Price</button>
+            <button class="slab-btn" onclick="quickFillBid(0.2)">+20 L</button>
+            <button class="slab-btn" onclick="quickFillBid(0.5)">+50 L</button>
+            <button class="slab-btn" onclick="quickFillBid(1.0)">+1.0 Cr</button>
+            <button class="slab-btn" onclick="quickFillBid(2.0)">+2.0 Cr</button>
           </div>
-
-          <div class="host-panel" id="hostBar">
-            <label style="font-size:0.7rem; color:var(--text-muted);">
+          
+          <!-- Host Controls Panel (Hidden for clients) -->
+          <div class="host-bar" style="margin-top:2px;" id="hostControlsPanel">
+            <label style="font-size:0.7rem; color:var(--text-muted); display:flex; align-items:center; gap:2px;">
               Timer:
-              <select id="timerSelect" class="pill-btn" style="background:#111726;" onchange="changeTimer(this.value)">
+              <select id="hostTimerDuration" class="btn-secondary" style="background:#111726;" onchange="updateHostTimerDuration(this.value)">
                 <option value="10">10s</option>
                 <option value="15" selected>15s</option>
                 <option value="20">20s</option>
@@ -425,591 +542,828 @@
                 <option value="120">120s</option>
               </select>
             </label>
-            <button class="pill-btn" id="pauseBtn" onclick="togglePause()">⏸️ Pause</button>
-            <button class="pill-btn" onclick="skipLot()">⏭️ Skip Lot</button>
-            <button class="pill-btn" onclick="skipSet()">⏩ Skip Set</button>
-            <button class="pill-btn" id="aiBtn" onclick="toggleAI()">AI Bids: OFF</button>
-            <button class="pill-btn" style="border-color:var(--accent-red); color:#ff6b7d;" onclick="openEndScreen()">End 🏁</button>
+            <button class="btn-secondary btn-warning" id="pauseResumeBtn" onclick="togglePauseGame()">⏸️ Pause</button>
+            <button class="btn-secondary" onclick="skipCurrentBid()">⏭️ Skip Bid</button>
+            <button class="btn-secondary" onclick="skipCurrentSet()">⏩ Skip Set</button>
+            <button class="btn-secondary" onclick="toggleAutoSim()" id="autoSimToggle">AI Bids: OFF</button>
+            <button class="btn-secondary btn-danger" onclick="triggerHostEndGame()">End Auction 🏁</button>
           </div>
         </div>
+
       </div>
     </section>
 
-    <!-- Right: Live Feed & Chat -->
-    <section class="panel">
-      <div class="panel-header"><span>War Room Live Feed & Chat</span></div>
-      <div class="messages-area" id="msgList"></div>
-      <div style="display:flex; gap:5px; padding:6px; border-top:1px solid var(--panel-border);">
-        <input type="text" id="chatInput" class="bid-input" style="font-size:0.8rem; padding:6px; text-align:left; flex:1;" placeholder="Type message..." onkeydown="if(event.key==='Enter') sendChat()" />
-        <button class="pill-btn gold" onclick="sendChat()">Send</button>
+    <!-- RIGHT: Desktop Column Feed/Chat -->
+    <section class="panel chat-panel desktop-only-chat">
+      <div class="panel-header">War Room Live Activity & Chat</div>
+      <div class="messages-area" id="messagesArea"></div>
+      <div style="display:flex; gap:4px; padding:6px; border-top:1px solid var(--panel-border);">
+        <input type="text" id="chatInput" class="secret-num-input" style="font-size:0.8rem; padding:6px; text-align:left; flex:1;" placeholder="Type tactical message..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
+        <button class="header-btn highlight" onclick="sendChatMessage()">Send</button>
       </div>
     </section>
+
   </main>
 
-  <!-- STARTUP LOBBY MODAL (WITH HARDCODED 10 TEAMS SO IT CAN NEVER BE BLANK!) -->
-  <div id="lobbyModal" class="modal-overlay">
+  <!-- LOBBY / HOST & JOIN MODAL (HARDCODED 10 TEAMS: IMPOSSIBLE TO BE BLANK!) -->
+  <div id="teamSelectModal" class="modal-overlay" style="display:flex;">
     <div class="modal-box">
       <div style="font-family:'Teko'; font-size:2rem; color:var(--accent-gold);">IPL AUCTION WAR ROOM</div>
-      <div style="display:flex; gap:6px; margin:8px 0;">
-        <button id="btnModeHost" class="pill-btn active" style="flex:1; padding:8px;" onclick="switchLobbyMode('host')">👑 Host New Auction</button>
-        <button id="btnModeJoin" class="pill-btn" style="flex:1; padding:8px;" onclick="switchLobbyMode('join')">🔗 Join Existing Room</button>
-      </div>
-
-      <div id="joinRoomBox" style="display:none; text-align:left; margin-bottom:8px;">
-        <label style="font-size:0.7rem; color:var(--text-muted);">Enter Room Code:</label>
-        <input type="text" id="roomCodeInput" class="bid-input" style="width:100%; font-size:0.85rem; padding:6px; text-align:left;" placeholder="e.g. ipl-abc12" />
-      </div>
-
-      <div style="text-align:left; margin-bottom:8px;">
-        <label style="font-size:0.72rem; color:var(--accent-gold); font-weight:700;">Franchise Owner / Manager Name (Required):</label>
-        <input type="text" id="managerNameInput" class="bid-input" style="width:100%; font-size:0.9rem; padding:6px 10px; text-align:left;" placeholder="Enter your name (e.g. Avinash)" />
-      </div>
-
-      <div style="font-size:0.75rem; color:var(--text-muted); text-align:left;">Select your franchise (₹120 Cr budget, exact 18 players):</div>
       
-      <!-- Hardcoded 10 IPL Franchises -->
+      <div style="display: flex; gap: 6px; margin: 8px 0;">
+        <button id="modeHostBtn" class="slab-btn active" style="flex:1; padding:8px; font-size:0.85rem;" onclick="setLobbyMode('host')">
+          👑 Host New Auction
+        </button>
+        <button id="modeJoinBtn" class="slab-btn" style="flex:1; padding:8px; font-size:0.85rem;" onclick="setLobbyMode('join')">
+          🔗 Join Existing Room
+        </button>
+      </div>
+
+      <div id="joinRoomInputArea" style="display:none; margin-bottom: 8px; text-align: left;">
+        <label style="font-size: 0.7rem; color: var(--text-muted); display: block;">Enter Host Room ID:</label>
+        <input type="text" id="joinRoomIdInput" class="secret-num-input" style="width:100%; text-align:left; font-size:0.85rem; padding:6px;" placeholder="e.g. ipl-abc12" />
+      </div>
+
+      <div style="margin-bottom: 8px; text-align: left;">
+        <label style="font-size: 0.72rem; font-weight: 600; color: var(--accent-gold); display: block;">Franchise Owner / Manager Name (Required):</label>
+        <input type="text" id="ownerNameInput" class="secret-num-input" style="width:100%; text-align:left; font-size:0.9rem; padding:6px 10px;" placeholder="Enter your name (e.g. Avinash)" required />
+      </div>
+
+      <div style="font-size:0.75rem; color:var(--text-muted); text-align:left; margin-bottom:4px;">
+        Select your franchise (₹120 Cr budget, exact 18 players):
+      </div>
+
       <div class="team-grid" id="teamPickGrid">
-        <button class="team-btn" onclick="pickTeam('CSK')"><span class="hud-badge" style="background:#fdb913;color:#002868;">CSK</span><span>Chennai Super Kings</span></button>
-        <button class="team-btn" onclick="pickTeam('MI')"><span class="hud-badge" style="background:#004ba0;color:#fff;">MI</span><span>Mumbai Indians</span></button>
-        <button class="team-btn" onclick="pickTeam('RCB')"><span class="hud-badge" style="background:#d71920;color:#fff;">RCB</span><span>Royal Challengers Bengaluru</span></button>
-        <button class="team-btn" onclick="pickTeam('KKR')"><span class="hud-badge" style="background:#3a225d;color:#fff;">KKR</span><span>Kolkata Knight Riders</span></button>
-        <button class="team-btn" onclick="pickTeam('SRH')"><span class="hud-badge" style="background:#f26522;color:#fff;">SRH</span><span>Sunrisers Hyderabad</span></button>
-        <button class="team-btn" onclick="pickTeam('DC')"><span class="hud-badge" style="background:#17479e;color:#fff;">DC</span><span>Delhi Capitals</span></button>
-        <button class="team-btn" onclick="pickTeam('RR')"><span class="hud-badge" style="background:#ea1a85;color:#fff;">RR</span><span>Rajasthan Royals</span></button>
-        <button class="team-btn" onclick="pickTeam('PBKS')"><span class="hud-badge" style="background:#ed1b24;color:#fff;">PBKS</span><span>Punjab Kings</span></button>
-        <button class="team-btn" onclick="pickTeam('GT')"><span class="hud-badge" style="background:#1c2841;color:#fff;">GT</span><span>Gujarat Titans</span></button>
-        <button class="team-btn" onclick="pickTeam('LSG')"><span class="hud-badge" style="background:#0057b8;color:#fff;">LSG</span><span>Lucknow Super Giants</span></button>
+        <button class="team-btn" onclick="selectUserTeam('CSK')"><span class="hud-team-badge" style="background:#fdb913; color:#002868;">CSK</span><span>Chennai Super Kings</span></button>
+        <button class="team-btn" onclick="selectUserTeam('MI')"><span class="hud-team-badge" style="background:#004ba0; color:#fff;">MI</span><span>Mumbai Indians</span></button>
+        <button class="team-btn" onclick="selectUserTeam('RCB')"><span class="hud-team-badge" style="background:#d71920; color:#fff;">RCB</span><span>Royal Challengers Bengaluru</span></button>
+        <button class="team-btn" onclick="selectUserTeam('KKR')"><span class="hud-team-badge" style="background:#3a225d; color:#fff;">KKR</span><span>Kolkata Knight Riders</span></button>
+        <button class="team-btn" onclick="selectUserTeam('SRH')"><span class="hud-team-badge" style="background:#f26522; color:#fff;">SRH</span><span>Sunrisers Hyderabad</span></button>
+        <button class="team-btn" onclick="selectUserTeam('DC')"><span class="hud-team-badge" style="background:#17479e; color:#fff;">DC</span><span>Delhi Capitals</span></button>
+        <button class="team-btn" onclick="selectUserTeam('RR')"><span class="hud-team-badge" style="background:#ea1a85; color:#fff;">RR</span><span>Rajasthan Royals</span></button>
+        <button class="team-btn" onclick="selectUserTeam('PBKS')"><span class="hud-team-badge" style="background:#ed1b24; color:#fff;">PBKS</span><span>Punjab Kings</span></button>
+        <button class="team-btn" onclick="selectUserTeam('GT')"><span class="hud-team-badge" style="background:#1c2841; color:#fff;">GT</span><span>Gujarat Titans</span></button>
+        <button class="team-btn" onclick="selectUserTeam('LSG')"><span class="hud-team-badge" style="background:#0057b8; color:#fff;">LSG</span><span>Lucknow Super Giants</span></button>
       </div>
     </div>
   </div>
 
-  <!-- SQUADS MODAL -->
-  <div id="squadsModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="max-width:750px; text-align:left;">
+  <!-- CONNECTED MANAGERS WAR ROOM MODAL -->
+  <div id="membersModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width: 600px; text-align: left;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <span style="font-family:'Teko'; font-size:1.6rem; color:var(--accent-gold);">FRANCHISE SQUADS EXPLORER</span>
-        <button class="pill-btn" onclick="document.getElementById('squadsModal').style.display='none'">✕ Close</button>
+        <div style="font-family:'Teko'; font-size:1.6rem; color:var(--accent-gold);">CONNECTED WAR ROOM MANAGERS</div>
+        <button class="btn-secondary" onclick="closeMembersModal()">✕ Close</button>
       </div>
-      <div class="quick-row" id="squadTabs" style="margin-bottom:8px; justify-content:flex-start;"></div>
-      <div id="squadSummaryBar" style="background:rgba(255,255,255,0.04); padding:8px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; font-size:0.8rem;"></div>
-      <div id="squadPlayersList" style="max-height:340px; overflow-y:auto;"></div>
+      <div id="membersList" style="display:grid; grid-template-columns:1fr; gap:6px; max-height:360px; overflow-y:auto;"></div>
     </div>
   </div>
 
-  <!-- UPCOMING DECK MODAL -->
-  <div id="deckModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="max-width:750px; text-align:left;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <span style="font-family:'Teko'; font-size:1.6rem; color:var(--accent-gold);">UPCOMING PLAYERS LOT DECK</span>
-        <button class="pill-btn" onclick="document.getElementById('deckModal').style.display='none'">✕ Close</button>
+  <!-- SQUADS EXPLORER MODAL -->
+  <div id="squadExplorerModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width: 800px; text-align: left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div style="font-family:'Teko'; font-size:1.6rem; color:var(--accent-gold);">WAR ROOM SQUADS EXPLORER</div>
+        <button class="btn-secondary" onclick="closeSquadExplorerModal()">✕ Close</button>
       </div>
-      <div class="quick-row" id="deckSetTabs" style="margin-bottom:8px; justify-content:flex-start;"></div>
-      <div id="deckPlayersList" style="max-height:340px; overflow-y:auto;"></div>
+      <div class="quick-slab-row" id="squadNavTabs" style="margin-bottom:8px; justify-content:flex-start;"></div>
+      <div id="squadExplorerHeaderCard" style="background:rgba(255,255,255,0.03); border:1px solid var(--panel-border); border-radius:8px; padding:6px 10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;"></div>
+      <div id="squadExplorerContent" style="max-height: 360px; overflow-y:auto;"></div>
     </div>
   </div>
 
-  <!-- END GAME SCREEN -->
-  <div id="endModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="max-width:1100px; max-height:90vh; overflow-y:auto; text-align:left;">
+  <!-- UPCOMING LOTS MODAL -->
+  <div id="upcomingModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width: 800px; text-align: left;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <div style="font-family:'Teko'; font-size:1.6rem; color:var(--accent-gold);">UPCOMING PLAYERS LOT DECK</div>
+        <button class="btn-secondary" onclick="closeUpcomingModal()">✕ Close</button>
+      </div>
+      <div class="quick-slab-row" id="upcomingSetTabs" style="margin-bottom:8px; justify-content:flex-start;"></div>
+      <div id="upcomingPlayersList" style="max-height: 360px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- GRAND FINALE END GAME SCREEN -->
+  <div id="endGameModal" class="modal-overlay" style="display:none;">
+    <div class="modal-box" style="max-width: 1000px; max-height: 90vh; overflow-y: auto; text-align: left;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <span style="font-family:'Teko'; font-size:2rem; color:var(--accent-gold);">🏆 FINAL AUCTION SQUADS</span>
-        <button class="pill-btn" onclick="document.getElementById('endModal').style.display='none'">✕ Close</button>
+        <div style="font-family:'Teko'; font-size:2.2rem; color:var(--accent-gold);">🏆 IPL MEGA AUCTION OFFICIAL SQUADS</div>
+        <button class="btn-secondary" onclick="closeEndGameModal()">✕ Close</button>
       </div>
-      <div id="finalGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px;"></div>
+      <div id="finalSquadsGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px;"></div>
     </div>
   </div>
 
   <script>
-    const TEAMS_META = {
-      CSK: { id:'CSK', name:'Chennai Super Kings', bg:'#fdb913', fg:'#002868' },
-      MI: { id:'MI', name:'Mumbai Indians', bg:'#004ba0', fg:'#fff' },
-      RCB: { id:'RCB', name:'Royal Challengers Bengaluru', bg:'#d71920', fg:'#fff' },
-      KKR: { id:'KKR', name:'Kolkata Knight Riders', bg:'#3a225d', fg:'#fff' },
-      SRH: { id:'SRH', name:'Sunrisers Hyderabad', bg:'#f26522', fg:'#fff' },
-      DC: { id:'DC', name:'Delhi Capitals', bg:'#17479e', fg:'#fff' },
-      RR: { id:'RR', name:'Rajasthan Royals', bg:'#ea1a85', fg:'#fff' },
-      PBKS: { id:'PBKS', name:'Punjab Kings', bg:'#ed1b24', fg:'#fff' },
-      GT: { id:'GT', name:'Gujarat Titans', bg:'#1c2841', fg:'#fff' },
-      LSG: { id:'LSG', name:'Lucknow Super Giants', bg:'#0057b8', fg:'#fff' }
-    };
+    const STORAGE_KEY_SESSION = 'ipl_authoritative_session_v1';
 
-    /* =====================================================================
-       PASTE YOUR 523 PLAYERS ARRAY BELOW INSIDE RAW_PLAYERS_DATA ON GITHUB
-       ===================================================================== */
-    const RAW_PLAYERS_DATA = [
-      ["Aiden Markram", "Batsman", 1, 200, "Marquee Set 1"], ["Arshdeep Singh", "Bowler", 0, 200, "Marquee Set 1"], ["Axar Patel", "All-Rounder", 0, 200, "Marquee Set 1"], ["Bhuvneshwar Kumar", "Bowler", 0, 200, "Marquee Set 1"], ["Hardik Pandya", "All-Rounder", 0, 200, "Marquee Set 1"], ["Heinrich Klaasen", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Ishan Kishan", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Jasprit Bumrah", "Bowler", 0, 200, "Marquee Set 1"], ["Jofra Archer", "Bowler", 1, 200, "Marquee Set 1"], ["Jos Buttler", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Josh Hazlewood", "Bowler", 1, 200, "Marquee Set 1"], ["Kagiso Rabada", "Bowler", 1, 200, "Marquee Set 1"], ["KL Rahul", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Kuldeep Yadav", "Bowler", 0, 200, "Marquee Set 1"], ["Lockie Ferguson", "Bowler", 1, 200, "Marquee Set 1"], ["Marco Jansen", "All-Rounder", 1, 200, "Marquee Set 1"], ["Marcus Stoinis", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Marsh", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Starc", "Bowler", 1, 200, "Marquee Set 1"], ["Mohammad Shami", "Bowler", 0, 200, "Marquee Set 1"], ["Mohammad Siraj", "Bowler", 0, 200, "Marquee Set 1"], ["MS Dhoni", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Nicholas Pooran", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Pat Cummins", "Bowler", 1, 200, "Marquee Set 1"], ["Phil Salt", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Rashid Khan", "Bowler", 1, 200, "Marquee Set 1"], ["Ravindra Jadeja", "All-Rounder", 0, 200, "Marquee Set 1"], ["Rinku Singh", "Batsman", 0, 200, "Marquee Set 1"], ["Rishabh Pant", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Rohit Sharma", "Batsman", 0, 200, "Marquee Set 1"], ["Ruturaj Gaikwad", "Batsman", 0, 200, "Marquee Set 1"], ["Sam Curran", "All-Rounder", 1, 200, "Marquee Set 1"], ["Sanju Samson", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Shimron Hetmyer", "Batsman", 1, 200, "Marquee Set 1"], ["Shivam Dube", "All-Rounder", 0, 200, "Marquee Set 1"], ["Shreyas Iyer", "Batsman", 0, 200, "Marquee Set 1"], ["Shubman Gill", "Batsman", 0, 200, "Marquee Set 1"], ["Sunil Narine", "All-Rounder", 1, 200, "Marquee Set 1"], ["Suryakumar Yadav", "Batsman", 0, 200, "Marquee Set 1"], ["Tim David", "Batsman", 1, 200, "Marquee Set 1"], ["Travis Head", "Batsman", 1, 200, "Marquee Set 1"], ["Trent Boult", "Bowler", 1, 200, "Marquee Set 1"], ["Varun Chakravarthy", "Bowler", 0, 200, "Marquee Set 1"], ["Virat Kohli", "Batsman", 0, 200, "Marquee Set 1"], ["Will Jacks", "All-Rounder", 1, 200, "Marquee Set 1"], ["Yashasvi Jaiswal", "Batsman", 0, 200, "Marquee Set 1"], ["Yuzvendra Chahal", "Bowler", 0, 200, "Marquee Set 1"], ["Noor Ahmed", "Bowler", 1, 200, "Marquee Set 1"],
-      ["Abhishek Sharma", "All-Rounder", 0, 100, "Set 1"], ["Avesh Khan", "Bowler", 0, 100, "Set 1"], ["Azmatullah Omarzai", "All-Rounder", 1, 100, "Set 1"], ["Deepak Chahar", "Bowler", 0, 100, "Set 1"], ["Dhruv Jurel", "Wicket-Keeper", 0, 100, "Set 1"], ["Glenn Phillips", "Batsman", 1, 100, "Set 1"], ["Harshal Patel", "Bowler", 0, 100, "Set 1"], ["Khaleel Ahmed", "Bowler", 0, 100, "Set 1"], ["Krunal Pandya", "All-Rounder", 0, 100, "Set 1"], ["Mayank Yadav", "Bowler", 0, 100, "Set 1"], ["Mitchell Santner", "All-Rounder", 1, 100, "Set 1"], ["Prasidh Krishna", "Bowler", 0, 100, "Set 1"], ["Rajat Patidar", "Batsman", 0, 100, "Set 1"], ["Riyan Parag", "All-Rounder", 0, 100, "Set 1"], ["Romario Shepherd", "All-Rounder", 1, 100, "Set 1"], ["Rovman Powell", "Batsman", 1, 100, "Set 1"], ["Sai Sudharsan", "Batsman", 0, 100, "Set 1"], ["Shardul Thakur", "All-Rounder", 0, 100, "Set 1"], ["Sherfane Rutherford", "Batsman", 1, 100, "Set 1"], ["T. Natarajan", "Bowler", 0, 100, "Set 1"], ["Tilak Varma", "Batsman", 0, 100, "Set 1"], ["Tristan Stubbs", "Batsman", 1, 100, "Set 1"], ["Washington Sundar", "All-Rounder", 0, 100, "Set 1"],
-      ["Allah Ghazanfar", "Bowler", 1, 75, "Set 2"], ["Brydon Carse", "All-Rounder", 1, 75, "Set 2"], ["Corbin Bosch", "All-Rounder", 1, 75, "Set 2"], ["Dewald Brevis", "Batsman", 1, 75, "Set 2"], ["Dushmantha Chameera", "Bowler", 1, 75, "Set 2"], ["Jacob Bethell", "All-Rounder", 1, 75, "Set 2"], ["Jamie Overton", "All-Rounder", 1, 75, "Set 2"], ["Jaydev Unadkat", "Bowler", 0, 75, "Set 2"], ["Kamindu Mendis", "All-Rounder", 1, 75, "Set 2"], ["Matthew Breetzke", "Batsman", 1, 75, "Set 2"], ["Mitchell Owen", "Batsman", 1, 75, "Set 2"], ["Mukesh Kumar", "Bowler", 0, 75, "Set 2"], ["Nandre Burger", "Bowler", 1, 75, "Set 2"], ["Nathan Ellis", "Bowler", 1, 75, "Set 2"], ["Nitish Rana", "Batsman", 0, 75, "Set 2"], ["Nuwan Thushara", "Bowler", 1, 75, "Set 2"], ["Rahul Tewatia", "All-Rounder", 0, 75, "Set 2"], ["Ryan Rickelton", "Wicket-Keeper", 1, 75, "Set 2"], ["Xavier Bartlett", "Bowler", 1, 75, "Set 2"],
-      ["Ajinkya Rahane", "Batsman", 0, 50, "Set 3"], ["Devdutt Padikkal", "Batsman", 0, 50, "Set 3"], ["Harshit Rana", "Bowler", 0, 50, "Set 3"], ["Ishant Sharma", "Bowler", 0, 50, "Set 3"], ["Jayant Yadav", "All-Rounder", 0, 50, "Set 3"], ["Jitesh Sharma", "Wicket-Keeper", 0, 50, "Set 3"], ["Karun Nair", "Batsman", 0, 50, "Set 3"], ["Manish Pandey", "Batsman", 0, 50, "Set 3"], ["Nitish Kumar Reddy", "All-Rounder", 0, 50, "Set 3"], ["R. Sai Kishore", "Bowler", 0, 50, "Set 3"], ["Sandeep Sharma", "Bowler", 0, 50, "Set 3"], ["Shahbaz Ahmed", "All-Rounder", 0, 50, "Set 3"], ["Shahrukh Khan", "Batsman", 0, 50, "Set 3"], ["Tushar Deshpande", "Bowler", 0, 50, "Set 3"], ["Umran Malik", "Bowler", 0, 50, "Set 3"], ["Yash Dayal", "Bowler", 0, 50, "Set 3"],
-      ["Abdul Samad", "All-Rounder", 0, 30, "Set 4"], ["Abhishek Porel", "Wicket-Keeper", 0, 30, "Set 4"], ["Angkrish Raghuvanshi", "Batsman", 0, 30, "Set 4"], ["Anshul Kamboj", "Bowler", 0, 30, "Set 4"], ["Ayush Badoni", "Batsman", 0, 30, "Set 4"], ["Nehal Wadhera", "Batsman", 0, 30, "Set 4"], ["Prabhsimran Singh", "Wicket-Keeper", 0, 30, "Set 4"], ["Ramandeep Singh", "All-Rounder", 0, 30, "Set 4"], ["Rasikh Salam", "Bowler", 0, 30, "Set 4"], ["Sameer Rizvi", "All-Rounder", 0, 30, "Set 4"], ["Shashank Singh", "All-Rounder", 0, 30, "Set 4"], ["Vaibhav Arora", "Bowler", 0, 30, "Set 4"], ["Vaibhav Suryavanshi", "Batsman", 0, 30, "Set 4"],
-      ["Cameron Green", "Batsman", 1, 200, "BA1"], ["David Miller", "Batsman", 1, 200, "BA1"], ["Devon Conway", "Batsman", 1, 200, "BA1"], ["Jake Fraser-McGurk", "Batsman", 1, 200, "BA1"], ["Prithvi Shaw", "Batsman", 0, 75, "BA1"], ["Sarfaraz Khan", "Batsman", 0, 75, "BA1"],
-      ["Deepak Hooda", "All-Rounder", 0, 75, "AL1"], ["Gus Atkinson", "All-Rounder", 1, 200, "AL1"], ["Liam Livingstone", "All-Rounder", 1, 200, "AL1"], ["Rachin Ravindra", "All-Rounder", 1, 200, "AL1"], ["Venkatesh Iyer", "All-Rounder", 0, 200, "AL1"], ["Wanindu Hasaranga", "All-Rounder", 1, 200, "AL1"], ["Wiaan Mulder", "All-Rounder", 1, 100, "AL1"],
-      ["Ben Duckett", "Wicket-Keeper", 1, 200, "WK1"], ["Finn Allen", "Wicket-Keeper", 1, 200, "WK1"], ["Jamie Smith", "Wicket-Keeper", 1, 200, "WK1"], ["Jonny Bairstow", "Wicket-Keeper", 1, 100, "WK1"], ["K.S. Bharat", "Wicket-Keeper", 0, 75, "WK1"], ["Quinton De Kock", "Wicket-Keeper", 1, 100, "WK1"], ["Rahmanullah Gurbaz", "Wicket-Keeper", 1, 150, "WK1"],
-      ["Akash Deep", "Bowler", 0, 100, "FA1"], ["Anrich Nortje", "Bowler", 1, 200, "FA1"], ["Fazalhaq Farooqi", "Bowler", 1, 100, "FA1"], ["Gerald Coetzee", "Bowler", 1, 200, "FA1"], ["Jacob Duffy", "Bowler", 1, 200, "FA1"], ["Matheesha Pathirana", "Bowler", 1, 200, "FA1"], ["Matt Henry", "Bowler", 1, 200, "FA1"], ["Shivam Mavi", "Bowler", 0, 75, "FA1"], ["Spencer Johnson", "Bowler", 1, 150, "FA1"],
-      ["Akeal Hosein", "Bowler", 1, 200, "SP1"], ["Maheesh Theekshana", "Bowler", 1, 200, "SP1"], ["Mujeeb Rahman", "Bowler", 1, 200, "SP1"], ["Rahul Chahar", "Bowler", 0, 100, "SP1"], ["Ravi Bishnoi", "Bowler", 0, 200, "SP1"]
+    const TEAMS_CONFIG = [
+      { id: 'CSK', name: 'Chennai Super Kings', color: '#fdb913', textColor: '#002868' },
+      { id: 'MI', name: 'Mumbai Indians', color: '#004ba0', textColor: '#ffffff' },
+      { id: 'RCB', name: 'Royal Challengers Bengaluru', color: '#d71920', textColor: '#ffffff' },
+      { id: 'KKR', name: 'Kolkata Knight Riders', color: '#3a225d', textColor: '#ffffff' },
+      { id: 'SRH', name: 'Sunrisers Hyderabad', color: '#f26522', textColor: '#ffffff' },
+      { id: 'DC', name: 'Delhi Capitals', color: '#17479e', textColor: '#ffffff' },
+      { id: 'RR', name: 'Rajasthan Royals', color: '#ea1a85', textColor: '#ffffff' },
+      { id: 'PBKS', name: 'Punjab Kings', color: '#ed1b24', textColor: '#ffffff' },
+      { id: 'GT', name: 'Gujarat Titans', color: '#1c2841', textColor: '#ffffff' },
+      { id: 'LSG', name: 'Lucknow Super Giants', color: '#0057b8', textColor: '#ffffff' }
     ];
 
-    let teams = {};
-    Object.keys(TEAMS_META).forEach(k => {
-      teams[k] = { ...TEAMS_META[k], purse: 12000, squad: [], os: 0, owner: 'AI Bot' };
+    /* =========================================================================
+       153 PLAYERS PRELOADED. (To add 523 players later, paste the array here!)
+       ========================================================================= */
+    const RAW_PLAYERS_153 = [["Aiden Markram", "Batsman", 1, 200, "Marquee Set 1"], ["Arshdeep Singh", "Bowler", 0, 200, "Marquee Set 1"], ["Axar Patel", "All-Rounder", 0, 200, "Marquee Set 1"], ["Bhuvneshwar Kumar", "Bowler", 0, 200, "Marquee Set 1"], ["Hardik Pandya", "All-Rounder", 0, 200, "Marquee Set 1"], ["Heinrich Klaasen", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Ishan Kishan", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Jasprit Bumrah", "Bowler", 0, 200, "Marquee Set 1"], ["Jofra Archer", "Bowler", 1, 200, "Marquee Set 1"], ["Jos Buttler", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Josh Hazlewood", "Bowler", 1, 200, "Marquee Set 1"], ["Kagiso Rabada", "Bowler", 1, 200, "Marquee Set 1"], ["KL Rahul", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Kuldeep Yadav", "Bowler", 0, 200, "Marquee Set 1"], ["Lockie Ferguson", "Bowler", 1, 200, "Marquee Set 1"], ["Marco Jansen", "All-Rounder", 1, 200, "Marquee Set 1"], ["Marcus Stoinis", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Marsh", "All-Rounder", 1, 200, "Marquee Set 1"], ["Mitchell Starc", "Bowler", 1, 200, "Marquee Set 1"], ["Mohammad Shami", "Bowler", 0, 200, "Marquee Set 1"], ["Mohammad Siraj", "Bowler", 0, 200, "Marquee Set 1"], ["MS Dhoni", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Nicholas Pooran", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Pat Cummins", "Bowler", 1, 200, "Marquee Set 1"], ["Phil Salt", "Wicket-Keeper", 1, 200, "Marquee Set 1"], ["Rashid Khan", "Bowler", 1, 200, "Marquee Set 1"], ["Ravindra Jadeja", "All-Rounder", 0, 200, "Marquee Set 1"], ["Rinku Singh", "Batsman", 0, 200, "Marquee Set 1"], ["Rishabh Pant", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Rohit Sharma", "Batsman", 0, 200, "Marquee Set 1"], ["Ruturaj Gaikwad", "Batsman", 0, 200, "Marquee Set 1"], ["Sam Curran", "All-Rounder", 1, 200, "Marquee Set 1"], ["Sanju Samson", "Wicket-Keeper", 0, 200, "Marquee Set 1"], ["Shimron Hetmyer", "Batsman", 1, 200, "Marquee Set 1"], ["Shivam Dube", "All-Rounder", 0, 200, "Marquee Set 1"], ["Shreyas Iyer", "Batsman", 0, 200, "Marquee Set 1"], ["Shubman Gill", "Batsman", 0, 200, "Marquee Set 1"], ["Sunil Narine", "All-Rounder", 1, 200, "Marquee Set 1"], ["Suryakumar Yadav", "Batsman", 0, 200, "Marquee Set 1"], ["Tim David", "Batsman", 1, 200, "Marquee Set 1"], ["Travis Head", "Batsman", 1, 200, "Marquee Set 1"], ["Trent Boult", "Bowler", 1, 200, "Marquee Set 1"], ["Varun Chakravarthy", "Bowler", 0, 200, "Marquee Set 1"], ["Virat Kohli", "Batsman", 0, 200, "Marquee Set 1"], ["Will Jacks", "All-Rounder", 1, 200, "Marquee Set 1"], ["Yashasvi Jaiswal", "Batsman", 0, 200, "Marquee Set 1"], ["Yuzvendra Chahal", "Bowler", 0, 200, "Marquee Set 1"], ["Noor Ahmed", "Bowler", 1, 200, "Marquee Set 1"], ["Abhishek Sharma", "All-Rounder", 0, 100, "Set 1"], ["Avesh Khan", "Bowler", 0, 100, "Set 1"], ["Azmatullah Omarzai", "All-Rounder", 1, 100, "Set 1"], ["Deepak Chahar", "Bowler", 0, 100, "Set 1"], ["Dhruv Jurel", "Wicket-Keeper", 0, 100, "Set 1"], ["Glenn Phillips", "Batsman", 1, 100, "Set 1"], ["Harshal Patel", "Bowler", 0, 100, "Set 1"], ["Khaleel Ahmed", "Bowler", 0, 100, "Set 1"], ["Krunal Pandya", "All-Rounder", 0, 100, "Set 1"], ["Mayank Yadav", "Bowler", 0, 100, "Set 1"], ["Mitchell Santner", "All-Rounder", 1, 100, "Set 1"], ["Prasidh Krishna", "Bowler", 0, 100, "Set 1"], ["Rajat Patidar", "Batsman", 0, 100, "Set 1"], ["Riyan Parag", "All-Rounder", 0, 100, "Set 1"], ["Romario Shepherd", "All-Rounder", 1, 100, "Set 1"], ["Rovman Powell", "Batsman", 1, 100, "Set 1"], ["Sai Sudharsan", "Batsman", 0, 100, "Set 1"], ["Shardul Thakur", "All-Rounder", 0, 100, "Set 1"], ["Sherfane Rutherford", "Batsman", 1, 100, "Set 1"], ["T. Natarajan", "Bowler", 0, 100, "Set 1"], ["Tilak Varma", "Batsman", 0, 100, "Set 1"], ["Tristan Stubbs", "Batsman", 1, 100, "Set 1"], ["Washington Sundar", "All-Rounder", 0, 100, "Set 1"], ["Allah Ghazanfar", "Bowler", 1, 75, "Set 2"], ["Brydon Carse", "All-Rounder", 1, 75, "Set 2"], ["Corbin Bosch", "All-Rounder", 1, 75, "Set 2"], ["Dewald Brevis", "Batsman", 1, 75, "Set 2"], ["Dushmantha Chameera", "Bowler", 1, 75, "Set 2"], ["Jacob Bethell", "All-Rounder", 1, 75, "Set 2"], ["Jamie Overton", "All-Rounder", 1, 75, "Set 2"], ["Jaydev Unadkat", "Bowler", 0, 75, "Set 2"], ["Kamindu Mendis", "All-Rounder", 1, 75, "Set 2"], ["Matthew Breetzke", "Batsman", 1, 75, "Set 2"], ["Mitchell Owen", "Batsman", 1, 75, "Set 2"], ["Mukesh Kumar", "Bowler", 0, 75, "Set 2"], ["Nandre Burger", "Bowler", 1, 75, "Set 2"], ["Nathan Ellis", "Bowler", 1, 75, "Set 2"], ["Nitish Rana", "Batsman", 0, 75, "Set 2"], ["Nuwan Thushara", "Bowler", 1, 75, "Set 2"], ["Rahul Tewatia", "All-Rounder", 0, 75, "Set 2"], ["Ryan Rickelton", "Wicket-Keeper", 1, 75, "Set 2"], ["Xavier Bartlett", "Bowler", 1, 75, "Set 2"], ["Ajinkya Rahane", "Batsman", 0, 50, "Set 3"], ["Devdutt Padikkal", "Batsman", 0, 50, "Set 3"], ["Harshit Rana", "Bowler", 0, 50, "Set 3"], ["Ishant Sharma", "Bowler", 0, 50, "Set 3"], ["Jayant Yadav", "All-Rounder", 0, 50, "Set 3"], ["Jitesh Sharma", "Wicket-Keeper", 0, 50, "Set 3"], ["Karun Nair", "Batsman", 0, 50, "Set 3"], ["Manish Pandey", "Batsman", 0, 50, "Set 3"], ["Nitish Kumar Reddy", "All-Rounder", 0, 50, "Set 3"], ["R. Sai Kishore", "Bowler", 0, 50, "Set 3"], ["Sandeep Sharma", "Bowler", 0, 50, "Set 3"], ["Shahbaz Ahmed", "All-Rounder", 0, 50, "Set 3"], ["Shahrukh Khan", "Batsman", 0, 50, "Set 3"], ["Tushar Deshpande", "Bowler", 0, 50, "Set 3"], ["Umran Malik", "Bowler", 0, 50, "Set 3"], ["Yash Dayal", "Bowler", 0, 50, "Set 3"], ["Abdul Samad", "All-Rounder", 0, 30, "Set 4"], ["Abhinandan Singh", "Bowler", 0, 30, "Set 4"], ["Abhishek Porel", "Wicket-Keeper", 0, 30, "Set 4"], ["Ajay Mandal", "All-Rounder", 0, 30, "Set 4"], ["Akash Singh", "Bowler", 0, 30, "Set 4"], ["Angkrish Raghuvanshi", "Batsman", 0, 30, "Set 4"], ["Aniket Verma", "Batsman", 0, 30, "Set 4"], ["Anshul Kamboj", "Bowler", 0, 30, "Set 4"], ["Anuj Rawat", "Wicket-Keeper", 0, 30, "Set 4"], ["Anukul Roy", "All-Rounder", 0, 30, "Set 4"], ["Arjun Tendulkar", "All-Rounder", 0, 30, "Set 4"], ["Arshin Kulkarni", "All-Rounder", 0, 30, "Set 4"], ["Ashutosh Sharma", "All-Rounder", 0, 30, "Set 4"], ["Ashwani Kumar", "Bowler", 0, 30, "Set 4"], ["Ayush Badoni", "Batsman", 0, 30, "Set 4"], ["Ayush Mhatre", "Batsman", 0, 30, "Set 4"], ["Digvesh Rathi", "Bowler", 0, 30, "Set 4"], ["Donovan Ferreira", "All-Rounder", 1, 30, "Set 4"], ["Eshan Malinga", "Bowler", 1, 30, "Set 4"], ["Gurjapneet Singh", "Bowler", 0, 30, "Set 4"], ["Gurnoor Brar", "Bowler", 0, 30, "Set 4"], ["Harnoor Pannu", "Batsman", 0, 30, "Set 4"], ["Harpreet Brar", "All-Rounder", 0, 30, "Set 4"], ["Harsh Dubey", "Bowler", 0, 30, "Set 4"], ["Himmat Singh", "Batsman", 0, 30, "Set 4"], ["Kumar Kushagra", "Wicket-Keeper", 0, 30, "Set 4"], ["Kwena Maphaka", "Bowler", 1, 30, "Set 4"], ["Lhuan-Dre Pretorious", "All-Rounder", 1, 30, "Set 4"], ["M. Siddharth", "Bowler", 0, 30, "Set 4"], ["Madhav Tiwari", "Batsman", 0, 30, "Set 4"], ["Manav Suthar", "Bowler", 0, 30, "Set 4"], ["Mayank Markande", "Bowler", 0, 30, "Set 4"], ["Mohd. Arshad Khan", "Bowler", 0, 30, "Set 4"], ["Mohsin Khan", "Bowler", 0, 30, "Set 4"], ["Mukesh Choudhary", "Bowler", 0, 30, "Set 4"], ["Musheer Khan", "All-Rounder", 0, 30, "Set 4"], ["Naman Dhir", "Batsman", 0, 30, "Set 4"], ["Nehal Wadhera", "Batsman", 0, 30, "Set 4"], ["Nishant Sindhu", "All-Rounder", 0, 30, "Set 4"], ["Prabhsimran Singh", "Wicket-Keeper", 0, 30, "Set 4"], ["Prince Yadav", "Bowler", 0, 30, "Set 4"], ["Priyansh Arya", "Batsman", 0, 30, "Set 4"], ["Pyla Avinash", "Batsman", 0, 30, "Set 4"], ["Raghu Sharma", "Bowler", 0, 30, "Set 4"], ["Raj Angad Bawa", "All-Rounder", 0, 30, "Set 4"], ["Ramakrishna Ghosh", "Wicket-Keeper", 0, 30, "Set 4"], ["Ramandeep Singh", "All-Rounder", 0, 30, "Set 4"]];
+
+    let teamsState = {};
+    TEAMS_CONFIG.forEach(t => {
+      teamsState[t.id] = {
+        id: t.id,
+        name: t.name,
+        color: t.color,
+        textColor: t.textColor,
+        purse: 12000,
+        squad: [],
+        overseasCount: 0,
+        ownerName: "AI Bot",
+        isHuman: false
+      };
     });
 
-    let myTeamId = null;
-    let myName = '';
+    let localTeamId = null;
+    let localOwnerName = "";
     let isHost = true;
-    let lobbyMode = 'host';
-    let roomId = new URLSearchParams(window.location.search).get('room') || ('ipl-' + Math.random().toString(36).substring(2, 7));
+    let selectedLobbyMode = 'host';
+    let currentPlayerIndex = 0;
+    let timerValue = 15;
+    let configuredTimerDuration = 15;
+    let timerInterval = null;
+    let isAuctionRunning = false;
+    let isGamePaused = false;
+    let aiSimulationEnabled = false;
+    let AUCTION_DECK = [];
+    let secretBidsMap = {};
+    let selectedExplorerTeamId = 'CSK';
+    let selectedUpcomingSet = '';
 
-    let deck = [];
-    let curIdx = 0;
-    let timerSec = 15;
-    let maxTimer = 15;
-    let timerRef = null;
-    let running = false;
-    let paused = false;
-    let aiEnabled = false;
-    let sealedBids = {};
+    const urlParams = new URLSearchParams(window.location.search);
+    let urlRoom = urlParams.get('room');
+    let roomId = urlRoom || ('ipl-' + Math.random().toString(36).substring(2, 7));
 
-    function buildDeck(raw) {
-      const sets = [];
-      const groups = {};
-      raw.forEach(r => {
-        const s = r[4];
-        if (!groups[s]) { sets.push(s); groups[s] = []; }
-        groups[s].push({ name: r[0], role: r[1], os: Boolean(r[2]), bp: r[3], set: r[4] });
-      });
-      const out = [];
-      sets.forEach(s => {
-        const list = groups[s];
-        for (let i = list.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [list[i], list[j]] = [list[j], list[i]];
+    function formatCurrency(lakhs) {
+      if (lakhs >= 100) return '₹' + (lakhs / 100).toFixed(2) + ' Cr';
+      return '₹' + lakhs + ' Lakhs';
+    }
+
+    function calculateMaxAffordableBid(team) {
+      const needed = 18 - team.squad.length;
+      if (needed <= 0) return 0;
+      const mandatoryReserved = (needed - 1) * 30;
+      return Math.max(0, team.purse - mandatoryReserved);
+    }
+
+    function buildAuctionDeck(rawPlayers) {
+      const setsOrder = [];
+      const setMap = {};
+      rawPlayers.forEach(p => {
+        const setName = p[4];
+        if (!setMap[setName]) {
+          setsOrder.push(setName);
+          setMap[setName] = [];
         }
-        out.push(...list);
+        setMap[setName].push({ name: p[0], role: p[1], overseas: Boolean(p[2]), bp: p[3], set: p[4] });
       });
-      return out;
+      const finalDeck = [];
+      setsOrder.forEach(setName => {
+        const setPlayers = [...setMap[setName]];
+        for (let i = setPlayers.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [setPlayers[i], setPlayers[j]] = [setPlayers[j], setPlayers[i]];
+        }
+        finalDeck.push(...setPlayers);
+      });
+      return finalDeck;
     }
 
-    function fmtCr(lakhs) {
-      return lakhs >= 100 ? ('₹' + (lakhs / 100).toFixed(2) + ' Cr') : ('₹' + lakhs + ' L');
-    }
-
-    function maxAllowedBid(team) {
-      const slotsLeft = 18 - team.squad.length;
-      if (slotsLeft <= 0) return 0;
-      return Math.max(0, team.purse - (slotsLeft - 1) * 30);
-    }
+    AUCTION_DECK = buildAuctionDeck(RAW_PLAYERS_153);
+    if (AUCTION_DECK.length > 0) selectedUpcomingSet = AUCTION_DECK[0].set;
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function beep(freq = 600, dur = 0.08) {
+    function playBeep(freq = 600, duration = 0.08) {
       try {
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.frequency.value = freq;
-        g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-        o.connect(g); g.connect(audioCtx.destination);
-        o.start(); o.stop(audioCtx.currentTime + dur);
-      } catch(e) {}
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
     }
 
-    function vibrate(ms = 35) {
-      if (navigator.vibrate) { try { navigator.vibrate(ms); } catch(e) {} }
+    function triggerHaptic(type = 'short') {
+      if (navigator.vibrate) {
+        try {
+          if (type === 'bid') navigator.vibrate([40, 30, 40]);
+          else if (type === 'sold') navigator.vibrate([100, 50, 150]);
+          else navigator.vibrate(25);
+        } catch(e) {}
+      }
     }
 
-    function switchLobbyMode(m) {
-      lobbyMode = m;
-      document.getElementById('btnModeHost').classList.toggle('active', m === 'host');
-      document.getElementById('btnModeJoin').classList.toggle('active', m === 'join');
-      document.getElementById('joinRoomBox').style.display = (m === 'join') ? 'block' : 'none';
+    /* ========================================================
+       AUTHORITATIVE NETWORKING ENGINE (HOST IS SOLE SERVER)
+       ======================================================== */
+    let peer = null;
+    let hostConnection = null;
+    let clientConnections = [];
+
+    function initNetwork() {
+      const dot = document.getElementById('networkDot');
+      document.getElementById('roomStatusText').innerText = roomId.toUpperCase() + (isHost ? ' (Host)' : '');
+
+      if (isHost) {
+        document.getElementById('hostControlsPanel').style.display = 'flex';
+        peer = new Peer(roomId, { debug: 1 });
+        peer.on('open', () => {
+          dot.className = 'status-dot';
+          logMessage('System', 'War room created by Host! Waiting for other managers.');
+          updateMembersUI();
+        });
+        peer.on('connection', conn => {
+          clientConnections.push(conn);
+          conn.on('open', () => {
+            // Send full authoritative state to newly connected client
+            conn.send({
+              type: 'FULL_SYNC',
+              teamsState: teamsState,
+              AUCTION_DECK: AUCTION_DECK,
+              currentPlayerIndex: currentPlayerIndex,
+              isAuctionRunning: isAuctionRunning,
+              isGamePaused: isGamePaused,
+              configuredTimerDuration: configuredTimerDuration,
+              timerValue: timerValue,
+              sealedCount: Object.keys(secretBidsMap).length
+            });
+          });
+          conn.on('data', data => handleHostIncomingData(conn, data));
+          conn.on('close', () => {
+            clientConnections = clientConnections.filter(c => c !== conn);
+            updateMembersUI();
+          });
+        });
+      } else {
+        document.getElementById('hostControlsPanel').style.display = 'none';
+        const clientPeerId = roomId + '-client-' + Math.random().toString(36).substring(2, 6);
+        peer = new Peer(clientPeerId, { debug: 1 });
+        peer.on('open', () => {
+          hostConnection = peer.connect(roomId, { reliable: true });
+          hostConnection.on('open', () => {
+            dot.className = 'status-dot';
+            logMessage('System', 'Connected to war room host!');
+            if (localTeamId) {
+              hostConnection.send({ type: 'JOIN_TEAM', teamId: localTeamId, name: localOwnerName });
+            }
+          });
+          hostConnection.on('data', data => handleClientIncomingData(data));
+          hostConnection.on('close', () => {
+            dot.className = 'status-dot paused';
+            logMessage('System', 'Lost connection to host. Reconnecting...');
+          });
+        });
+      }
     }
 
-    function pickTeam(teamId) {
-      const nameVal = document.getElementById('managerNameInput').value.trim();
-      if (!nameVal) {
-        alert('Please enter your Manager Name first!');
-        document.getElementById('managerNameInput').focus();
+    function broadcastFromHost(payload) {
+      if (!isHost) return;
+      clientConnections.forEach(conn => {
+        if (conn.open) conn.send(payload);
+      });
+    }
+
+    /* HOST DATA HANDLER (AUTHORITATIVE) */
+    function handleHostIncomingData(conn, data) {
+      if (data.type === 'JOIN_TEAM') {
+        teamsState[data.teamId].ownerName = data.name;
+        teamsState[data.teamId].isHuman = true;
+        logMessage('War Room', data.name + ' took command of ' + teamsState[data.teamId].name);
+        updateMembersUI();
+        broadcastFromHost({
+          type: 'FULL_SYNC',
+          teamsState: teamsState,
+          AUCTION_DECK: AUCTION_DECK,
+          currentPlayerIndex: currentPlayerIndex,
+          isAuctionRunning: isAuctionRunning,
+          isGamePaused: isGamePaused,
+          configuredTimerDuration: configuredTimerDuration,
+          timerValue: timerValue,
+          sealedCount: Object.keys(secretBidsMap).length
+        });
+      } else if (data.type === 'SUBMIT_BID') {
+        secretBidsMap[data.teamId] = data.amount;
+        updateSealedCountUI();
+        logMessage(data.teamId, teamsState[data.teamId].ownerName + ' sealed a secret bid 🔒');
+        broadcastFromHost({ type: 'SEALED_COUNT_UPDATE', count: Object.keys(secretBidsMap).length });
+      } else if (data.type === 'CHAT') {
+        logMessage(data.sender, data.text);
+        broadcastFromHost(data);
+      }
+    }
+
+    /* CLIENT DATA HANDLER (REACTIVE ONLY - NEVER RUNS TIMERS!) */
+    function handleClientIncomingData(data) {
+      if (data.type === 'FULL_SYNC') {
+        teamsState = data.teamsState;
+        AUCTION_DECK = data.AUCTION_DECK;
+        currentPlayerIndex = data.currentPlayerIndex;
+        isAuctionRunning = data.isAuctionRunning;
+        isGamePaused = data.isGamePaused;
+        configuredTimerDuration = data.configuredTimerDuration;
+        timerValue = data.timerValue;
+        document.getElementById('timerNumber').innerText = timerValue;
+        document.getElementById('sealedCountText').innerText = data.sealedCount + ' Teams';
+        updateSpotlightUI();
+        updateFranchiseHudUI();
+        updateMembersUI();
+      } else if (data.type === 'TICK') {
+        timerValue = data.timerValue;
+        document.getElementById('timerNumber').innerText = timerValue;
+        document.getElementById('sealedCountText').innerText = data.sealedCount + ' Teams';
+        if (timerValue <= 5 && timerValue > 0) playBeep(480, 0.08);
+      } else if (data.type === 'LOT_START') {
+        currentPlayerIndex = data.curIdx;
+        timerValue = data.timerSec;
+        configuredTimerDuration = data.configuredTimerDuration;
+        document.getElementById('bidsRevealPanel').style.display = 'none';
+        document.getElementById('mySecretBidText').innerText = 'None';
+        document.getElementById('lockBidBtn').disabled = false;
+        document.getElementById('lockBidBtn').innerText = 'LOCK SECRET BID';
+        document.getElementById('secretBidInput').value = (AUCTION_DECK[currentPlayerIndex].bp / 100).toFixed(2);
+        updateSpotlightUI();
+        updateFranchiseHudUI();
+      } else if (data.type === 'LOT_RESULT') {
+        teamsState = data.teamsState;
+        renderLotResult(data);
+      } else if (data.type === 'SEALED_COUNT_UPDATE') {
+        document.getElementById('sealedCountText').innerText = data.count + ' Teams';
+      } else if (data.type === 'PAUSE_STATE') {
+        isGamePaused = data.paused;
+        document.getElementById('gamePauseBanner').style.display = isGamePaused ? 'block' : 'none';
+      } else if (data.type === 'CHAT') {
+        logMessage(data.sender, data.text);
+      }
+    }
+
+    /* ========================================================
+       HOST AUCTION ENGINE (ONLY HOST EXECUTES TIMER & OUTCOMES)
+       ======================================================== */
+    function hostStartLot(playerIdx) {
+      if (!isHost) return;
+      clearInterval(timerInterval);
+
+      if (playerIdx >= AUCTION_DECK.length) {
+        broadcastFromHost({ type: 'AUCTION_ENDED' });
+        triggerHostEndGame();
         return;
       }
-      myName = nameVal;
-      myTeamId = teamId;
-      teams[teamId].owner = myName;
 
-      if (lobbyMode === 'join') {
-        const rInput = document.getElementById('roomCodeInput').value.trim();
-        if (rInput) roomId = rInput;
+      currentPlayerIndex = playerIdx;
+      const player = AUCTION_DECK[currentPlayerIndex];
+      secretBidsMap = {};
+      timerValue = configuredTimerDuration;
+
+      document.getElementById('bidsRevealPanel').style.display = 'none';
+      document.getElementById('mySecretBidText').innerText = 'None';
+      document.getElementById('lockBidBtn').disabled = false;
+      document.getElementById('lockBidBtn').innerText = 'LOCK SECRET BID';
+      document.getElementById('secretBidInput').value = (player.bp / 100).toFixed(2);
+
+      updateSpotlightUI();
+      updateFranchiseHudUI();
+      updateSealedCountUI();
+
+      broadcastFromHost({
+        type: 'LOT_START',
+        curIdx: currentPlayerIndex,
+        timerSec: timerValue,
+        configuredTimerDuration: configuredTimerDuration
+      });
+
+      if (aiSimulationEnabled) {
+        setTimeout(simulateAISecretBids, 1500);
+      }
+
+      timerInterval = setInterval(() => {
+        if (isGamePaused) return;
+
+        timerValue--;
+        document.getElementById('timerNumber').innerText = timerValue;
+
+        if (timerValue <= 5 && timerValue > 0) playBeep(480, 0.08);
+
+        if (aiSimulationEnabled && timerValue === Math.floor(configuredTimerDuration / 2)) {
+          simulateAISecretBids();
+        }
+
+        broadcastFromHost({
+          type: 'TICK',
+          timerValue: timerValue,
+          sealedCount: Object.keys(secretBidsMap).length
+        });
+
+        if (timerValue <= 0) {
+          clearInterval(timerInterval);
+          hostResolveLot();
+        }
+      }, 1000);
+    }
+
+    function simulateAISecretBids() {
+      if (!isHost) return;
+      const player = AUCTION_DECK[currentPlayerIndex];
+
+      Object.values(teamsState).forEach(t => {
+        if (t.isHuman) return; // Do not bid for human players
+        if (t.squad.length >= 18) return;
+        if (player.overseas && t.overseasCount >= 6) return;
+
+        const maxBid = calculateMaxAffordableBid(t);
+        if (maxBid < player.bp) return;
+
+        if (Math.random() < 0.65) {
+          const mult = 1.0 + (Math.random() * 0.45);
+          let chosen = Math.round(player.bp * mult);
+          if (chosen > maxBid) chosen = maxBid;
+          if (chosen >= player.bp) {
+            secretBidsMap[t.id] = chosen;
+          }
+        }
+      });
+
+      updateSealedCountUI();
+      broadcastFromHost({ type: 'SEALED_COUNT_UPDATE', count: Object.keys(secretBidsMap).length });
+    }
+
+    function hostResolveLot() {
+      if (!isHost) return;
+      document.getElementById('lockBidBtn').disabled = true;
+
+      const player = AUCTION_DECK[currentPlayerIndex];
+      const bids = Object.entries(secretBidsMap).map(([id, amt]) => ({
+        id: id,
+        amt: amt,
+        name: teamsState[id].name,
+        color: teamsState[id].color,
+        owner: teamsState[id].ownerName
+      }));
+
+      bids.sort((a, b) => b.amt - a.amt);
+
+      let winnerId = null;
+      let winnerName = null;
+      let winAmt = 0;
+      let isUnsold = bids.length === 0;
+
+      if (!isUnsold) {
+        winnerId = bids[0].id;
+        winnerName = teamsState[winnerId].name;
+        winAmt = bids[0].amt;
+
+        teamsState[winnerId].purse -= winAmt;
+        teamsState[winnerId].squad.push({ ...player, pricePaid: winAmt });
+        if (player.overseas) teamsState[winnerId].overseasCount++;
+      }
+
+      const resultPayload = {
+        type: 'LOT_RESULT',
+        winnerId: winnerId,
+        winnerName: winnerName,
+        winAmt: winAmt,
+        isUnsold: isUnsold,
+        topBids: bids.slice(0, 3),
+        teamsState: teamsState,
+        playerName: player.name
+      };
+
+      renderLotResult(resultPayload);
+      broadcastFromHost(resultPayload);
+
+      setTimeout(() => {
+        hostStartLot(currentPlayerIndex + 1);
+      }, 4000);
+    }
+
+    function renderLotResult(res) {
+      const panel = document.getElementById('bidsRevealPanel');
+      panel.style.display = 'block';
+
+      if (res.isUnsold) {
+        document.getElementById('revealListContent').innerHTML = '<div style="font-size:0.8rem; color:var(--text-muted); text-align:center;">Unsold lot (no bids submitted).</div>';
+        logMessage('Hammer', res.playerName + ' went UNSOLD.');
+      } else {
+        document.getElementById('revealListContent').innerHTML = res.topBids.map((b, i) => 
+          '<div style="display:flex; justify-content:space-between; padding:3px 6px; font-size:0.8rem;">' +
+            '<span>#' + (i+1) + ' <strong style="color:' + b.color + ';">' + b.name + '</strong> (' + b.owner + ')</span>' +
+            '<span style="font-family:Teko; font-size:1.25rem; color:var(--accent-green);">' + formatCurrency(b.amt) + '</span>' +
+          '</div>'
+        ).join('');
+
+        triggerHaptic('sold');
+        confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+        logMessage('SOLD', '🏆 ' + res.playerName + ' SOLD to ' + res.winnerName + ' for ' + formatCurrency(res.winAmt));
+      }
+
+      updateFranchiseHudUI();
+    }
+
+    /* ========================================================
+       USER INTERACTIONS & CONTROLS
+       ======================================================== */
+    function setLobbyMode(mode) {
+      selectedLobbyMode = mode;
+      document.getElementById('modeHostBtn').classList.toggle('active', mode === 'host');
+      document.getElementById('modeJoinBtn').classList.toggle('active', mode === 'join');
+      document.getElementById('joinRoomInputArea').style.display = (mode === 'join') ? 'block' : 'none';
+    }
+
+    function selectUserTeam(teamId) {
+      const nameVal = document.getElementById('ownerNameInput').value.trim();
+      if (!nameVal) {
+        alert("Please enter your Franchise Owner / Manager Name first!");
+        document.getElementById('ownerNameInput').focus();
+        return;
+      }
+
+      localOwnerName = nameVal;
+      localTeamId = teamId;
+      teamsState[teamId].ownerName = localOwnerName;
+      teamsState[teamId].isHuman = true;
+
+      if (selectedLobbyMode === 'join') {
+        const joinId = document.getElementById('joinRoomIdInput').value.trim();
+        if (joinId) roomId = joinId;
         isHost = false;
       } else {
         isHost = true;
       }
 
-      document.getElementById('lobbyModal').style.display = 'none';
-      if (deck.length === 0) deck = buildDeck(RAW_PLAYERS_DATA);
+      document.getElementById('teamSelectModal').style.display = 'none';
+      updateSpotlightUI();
+      updateFranchiseHudUI();
+      initNetwork();
 
-      updateUI();
-      saveState();
-      setupNetworking();
-
-      if (isHost && !running && !document.getElementById('startBtn')) {
-        const b = document.createElement('button');
-        b.id = 'startBtn';
-        b.className = 'bid-btn';
-        b.style.background = 'linear-gradient(135deg, #ffbe1a, #ff9100)';
-        b.style.color = '#000';
-        b.style.padding = '10px';
-        b.innerText = 'START LIVE AUCTION (ALL READY)';
-        b.onclick = () => {
-          b.remove();
-          running = true;
-          saveState();
-          sendNet({ type: 'START' });
-          startLot(curIdx);
+      if (isHost && !isAuctionRunning && !document.getElementById('manualStartAuctionBtn')) {
+        const startBtn = document.createElement('button');
+        startBtn.id = 'manualStartAuctionBtn';
+        startBtn.className = 'bid-action-btn';
+        startBtn.style.background = 'linear-gradient(135deg, #ffbe1a, #ff9100)';
+        startBtn.style.color = '#000';
+        startBtn.style.marginBottom = '4px';
+        startBtn.innerText = 'START LIVE AUCTION (ALL MANAGERS READY)';
+        startBtn.onclick = () => {
+          startBtn.remove();
+          isAuctionRunning = true;
+          logMessage('System', 'Host launched the live hammer!');
+          hostStartLot(0);
         };
-        document.getElementById('controlsArea').prepend(b);
+        document.getElementById('biddingControlsArea').prepend(startBtn);
       }
     }
 
-    let peer = null;
-    let conns = [];
-    let hostConn = null;
+    function handleLockSecretBid() {
+      if (!isAuctionRunning) return alert("Auction not started yet. Waiting for Host to start!");
+      if (isGamePaused) return alert("Auction is paused by Host.");
 
-    function setupNetworking() {
-      document.getElementById('roomText').innerText = roomId.toUpperCase() + (isHost ? ' (Host)' : '');
-      try {
-        peer = new Peer(isHost ? roomId : (roomId + '-' + Math.random().toString(36).substring(2, 6)));
-        peer.on('open', () => {
-          if (!isHost) {
-            hostConn = peer.connect(roomId);
-            hostConn.on('open', () => {
-              hostConn.send({ type: 'JOIN', teamId: myTeamId, owner: myName });
-            });
-            hostConn.on('data', handleNetData);
-          }
-        });
-        peer.on('connection', c => {
-          conns.push(c);
-          c.on('open', () => {
-            c.send({ type: 'SYNC', teams, deck, curIdx, timerSec, maxTimer, running, paused, sealedBids });
-          });
-          c.on('data', handleNetData);
-        });
-      } catch(e) {}
-    }
+      const team = teamsState[localTeamId];
+      const player = AUCTION_DECK[currentPlayerIndex];
+      const rawVal = parseFloat(document.getElementById('secretBidInput').value);
 
-    function sendNet(data) {
-      if (isHost) conns.forEach(c => { if (c.open) c.send(data); });
-      else if (hostConn && hostConn.open) hostConn.send(data);
-    }
+      if (isNaN(rawVal) || rawVal <= 0) return alert("Please enter a valid bid amount.");
+      const bidLakhs = Math.round(rawVal * 100);
 
-    function handleNetData(d) {
-      if (d.type === 'JOIN') {
-        teams[d.teamId].owner = d.owner;
-        addFeed(d.teamId, d.owner + ' joined the war room.');
-        sendNet({ type: 'SYNC', teams, deck, curIdx, timerSec, maxTimer, running, paused, sealedBids });
-      } else if (d.type === 'SYNC') {
-        teams = d.teams; deck = d.deck; curIdx = d.curIdx; timerSec = d.timerSec;
-        maxTimer = d.maxTimer; running = d.running; paused = d.paused; sealedBids = d.sealedBids || {};
-        updateUI();
-      } else if (d.type === 'START') {
-        running = true;
-        startLot(curIdx);
-      } else if (d.type === 'BID') {
-        sealedBids[d.teamId] = d.amount;
-        updateSealedUI();
-        if (isHost) sendNet(d);
-      } else if (d.type === 'CHAT') {
-        addFeed(d.sender, d.text);
-        if (isHost) sendNet(d);
+      if (bidLakhs < player.bp) return alert("Bid cannot be lower than Base Price (" + formatCurrency(player.bp) + ")!");
+      const maxBid = calculateMaxAffordableBid(team);
+      if (bidLakhs > maxBid) return alert("Purse Reserve Limit Exceeded! Max allowed: " + formatCurrency(maxBid));
+
+      secretBidsMap[localTeamId] = bidLakhs;
+      document.getElementById('mySecretBidText').innerText = formatCurrency(bidLakhs);
+      document.getElementById('lockBidBtn').innerText = "UPDATE SECRET BID";
+      triggerHaptic('bid');
+      playBeep(820, 0.1);
+
+      if (isHost) {
+        updateSealedCountUI();
+        broadcastFromHost({ type: 'SEALED_COUNT_UPDATE', count: Object.keys(secretBidsMap).length });
+      } else if (hostConnection && hostConnection.open) {
+        hostConnection.send({ type: 'SUBMIT_BID', teamId: localTeamId, amount: bidLakhs });
       }
     }
 
-    function startLot(idx) {
-      clearInterval(timerRef);
-      if (idx >= deck.length) { openEndScreen(); return; }
-      curIdx = idx;
-      sealedBids = {};
-      timerSec = maxTimer;
-      document.getElementById('revealBox').style.display = 'none';
-      document.getElementById('myBidDisplay').innerText = 'None';
-      document.getElementById('lockBtn').disabled = false;
-      document.getElementById('lockBtn').innerText = 'LOCK SECRET BID';
-      document.getElementById('bidInput').value = (deck[curIdx].bp / 100).toFixed(2);
-
-      updateUI();
-      saveState();
-
-      if (aiEnabled) setTimeout(runAIBids, 1200);
-
-      timerRef = setInterval(() => {
-        if (paused) return;
-        timerSec--;
-        document.getElementById('timerDisplay').innerText = timerSec;
-        if (timerSec <= 5 && timerSec > 0) beep(520, 0.07);
-        if (aiEnabled && timerSec === Math.floor(maxTimer / 2)) runAIBids();
-        if (timerSec <= 0) {
-          clearInterval(timerRef);
-          resolveLot();
-        }
-      }, 1000);
+    function quickFillBid(extraCr) {
+      if (!AUCTION_DECK[currentPlayerIndex]) return;
+      const baseCr = AUCTION_DECK[currentPlayerIndex].bp / 100;
+      document.getElementById('secretBidInput').value = (baseCr + extraCr).toFixed(2);
     }
 
-    function lockSecretBid() {
-      if (!running) return alert('Host must click START LIVE AUCTION first!');
-      if (paused) return alert('Auction is paused!');
-      const t = teams[myTeamId];
-      const p = deck[curIdx];
-      if (t.squad.length >= 18) return alert('Squad full (18/18)!');
-      if (p.os && t.os >= 6) return alert('Overseas limit reached (6/6)!');
-
-      const val = parseFloat(document.getElementById('bidInput').value);
-      if (isNaN(val) || val <= 0) return alert('Invalid bid amount');
-      const lakhs = Math.round(val * 100);
-      if (lakhs < p.bp) return alert('Minimum bid is Base Price: ' + fmtCr(p.bp));
-      if (lakhs > maxAllowedBid(t)) return alert('Exceeds Max Allowed Purse Reserve (' + fmtCr(maxAllowedBid(t)) + ')');
-
-      sealedBids[myTeamId] = lakhs;
-      document.getElementById('myBidDisplay').innerText = fmtCr(lakhs);
-      document.getElementById('lockBtn').innerText = 'UPDATE SECRET BID';
-      vibrate(40);
-      beep(840, 0.1);
-      updateSealedUI();
-      saveState();
-      sendNet({ type: 'BID', teamId: myTeamId, amount: lakhs });
-    }
-
-    function runAIBids() {
-      const p = deck[curIdx];
-      Object.values(teams).forEach(t => {
-        if (t.id === myTeamId || t.squad.length >= 18 || (p.os && t.os >= 6)) return;
-        const cap = maxAllowedBid(t);
-        if (cap >= p.bp && Math.random() < 0.65) {
-          const mult = 1 + Math.random() * 0.4;
-          sealedBids[t.id] = Math.min(cap, Math.round(p.bp * mult));
-        }
+    function updateHostTimerDuration(val) {
+      if (!isHost) return;
+      configuredTimerDuration = parseInt(val, 10);
+      timerValue = configuredTimerDuration;
+      document.getElementById('timerNumber').innerText = timerValue;
+      broadcastFromHost({
+        type: 'TICK',
+        timerValue: timerValue,
+        sealedCount: Object.keys(secretBidsMap).length
       });
-      updateSealedUI();
-      saveState();
+      logMessage('Host', 'Countdown set to ' + configuredTimerDuration + 's.');
     }
 
-    function updateSealedUI() {
-      const cnt = Object.keys(sealedBids).length;
-      document.getElementById('sealedCountDisplay').innerText = cnt + (cnt === 1 ? ' Team' : ' Teams');
-    }
-
-    function resolveLot() {
-      document.getElementById('lockBtn').disabled = true;
-      const p = deck[curIdx];
-      const list = Object.entries(sealedBids).map(([id, amt]) => ({ id, amt, name: teams[id].name, bg: teams[id].bg, owner: teams[id].owner }));
-      list.sort((a, b) => b.amt - a.amt);
-
-      const box = document.getElementById('revealBox');
-      const content = document.getElementById('revealList');
-      box.style.display = 'block';
-
-      if (list.length === 0) {
-        content.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.8rem;">No bids placed. UNSOLD.</div>';
-        addFeed('UNSOLD', p.name + ' went UNSOLD.');
-      } else {
-        content.innerHTML = list.slice(0, 3).map((b, i) =>
-          '<div style="display:flex; justify-content:space-between; padding:4px 8px; font-size:0.82rem;">' +
-            '<span>#' + (i + 1) + ' <strong>' + b.name + '</strong> (' + b.owner + ')</span>' +
-            '<strong style="color:var(--accent-green);">' + fmtCr(b.amt) + '</strong>' +
-          '</div>'
-        ).join('');
-
-        const win = teams[list[0].id];
-        win.purse -= list[0].amt;
-        win.squad.push({ ...p, paid: list[0].amt });
-        if (p.os) win.os++;
-        vibrate([80, 40, 100]);
-        beep(1040, 0.3);
-        confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
-        addFeed('SOLD', '🏆 ' + p.name + ' SOLD to ' + win.name + ' for ' + fmtCr(list[0].amt));
-      }
-
-      updateUI();
-      saveState();
-      setTimeout(() => startLot(curIdx + 1), 4000);
-    }
-
-    function updateUI() {
-      if (myTeamId && teams[myTeamId]) {
-        const t = teams[myTeamId];
-        const b = document.getElementById('hudBadge');
-        b.innerText = t.id; b.style.background = t.bg; b.style.color = t.fg;
-        document.getElementById('hudTeamName').innerText = t.name;
-        document.getElementById('hudOwner').innerText = 'Owner: ' + t.owner + ' (You)';
-        document.getElementById('hudPurse').innerText = fmtCr(t.purse);
-        document.getElementById('hudSquad').innerText = t.squad.length + ' / 18';
-        document.getElementById('hudOverseas').innerText = t.os + ' / 6';
-        document.getElementById('maxCapText').innerText = 'Max Allowed: ' + fmtCr(maxAllowedBid(t));
-      }
-      if (deck[curIdx]) {
-        const p = deck[curIdx];
-        document.getElementById('setHeader').innerText = p.set + ' • Live Hammer';
-        document.getElementById('lotProgress').innerText = 'Lot ' + (curIdx + 1) + ' / ' + deck.length;
-        document.getElementById('pSet').innerText = p.set;
-        document.getElementById('pName').innerText = p.name;
-        document.getElementById('pRole').innerText = p.role;
-        document.getElementById('pNat').innerText = p.os ? '✈️ Overseas' : '🇮🇳 India';
-        document.getElementById('pBase').innerText = 'Base: ' + fmtCr(p.bp);
-      }
-      updateSealedUI();
-    }
-
-    function setBidOffset(cr) {
-      if (!deck[curIdx]) return;
-      document.getElementById('bidInput').value = (deck[curIdx].bp / 100 + cr).toFixed(2);
-    }
-
-    function changeTimer(v) {
+    function togglePauseGame() {
       if (!isHost) return;
-      maxTimer = parseInt(v, 10);
-      timerSec = maxTimer;
-      document.getElementById('timerDisplay').innerText = timerSec;
-      saveState();
+      isGamePaused = !isGamePaused;
+      document.getElementById('gamePauseBanner').style.display = isGamePaused ? 'block' : 'none';
+      document.getElementById('pauseResumeBtn').innerText = isGamePaused ? '▶️ Resume' : '⏸️ Pause';
+      broadcastFromHost({ type: 'PAUSE_STATE', paused: isGamePaused });
     }
 
-    function togglePause() {
+    function skipCurrentBid() {
+      if (!isHost || !isAuctionRunning) return;
+      clearInterval(timerInterval);
+      hostResolveLot();
+    }
+
+    function skipCurrentSet() {
+      if (!isHost || !isAuctionRunning) return;
+      const curSet = AUCTION_DECK[currentPlayerIndex].set;
+      let nextIdx = currentPlayerIndex + 1;
+      while (nextIdx < AUCTION_DECK.length && AUCTION_DECK[nextIdx].set === curSet) {
+        nextIdx++;
+      }
+      clearInterval(timerInterval);
+      hostStartLot(nextIdx);
+    }
+
+    function toggleAutoSim() {
+      aiSimulationEnabled = !aiSimulationEnabled;
+      document.getElementById('autoSimToggle').innerText = 'AI Bids: ' + (aiSimulationEnabled ? 'ON' : 'OFF');
+      if (aiSimulationEnabled && isAuctionRunning && timerValue > 2) {
+        simulateAISecretBids();
+      }
+    }
+
+    function triggerHostEndGame() {
       if (!isHost) return;
-      paused = !paused;
-      document.getElementById('pauseBanner').style.display = paused ? 'block' : 'none';
-      document.getElementById('pauseBtn').innerText = paused ? '▶️ Resume' : '⏸️ Pause';
+      clearInterval(timerInterval);
+      openEndGameModal();
     }
 
-    function skipLot() { if (isHost && running) { clearInterval(timerRef); resolveLot(); } }
-
-    function skipSet() {
-      if (!isHost || !running) return;
-      const s = deck[curIdx].set;
-      let next = curIdx + 1;
-      while (next < deck.length && deck[next].set === s) next++;
-      clearInterval(timerRef);
-      startLot(next);
+    function updateSealedCountUI() {
+      const count = Object.keys(secretBidsMap).length;
+      document.getElementById('sealedCountText').innerText = count + (count === 1 ? ' Team' : ' Teams');
     }
 
-    function toggleAI() {
-      aiEnabled = !aiEnabled;
-      document.getElementById('aiBtn').innerText = 'AI Bids: ' + (aiEnabled ? 'ON' : 'OFF');
-      if (aiEnabled && running) runAIBids();
+    function updateSpotlightUI() {
+      if (!AUCTION_DECK[currentPlayerIndex]) return;
+      const player = AUCTION_DECK[currentPlayerIndex];
+      document.getElementById('playerName').innerText = player.name;
+      document.getElementById('playerRole').innerText = player.role;
+      document.getElementById('playerOverseas').innerText = player.overseas ? '✈️ Overseas' : '🇮🇳 India';
+      document.getElementById('playerBasePrice').innerText = 'Base: ' + formatCurrency(player.bp);
+      document.getElementById('playerSetTag').innerText = player.set;
+      document.getElementById('auctionSetHeading').innerText = player.set + ' • Live Hammer';
+      document.getElementById('deckProgress').innerText = 'Lot ' + (currentPlayerIndex + 1) + ' of ' + AUCTION_DECK.length;
     }
+
+    function updateFranchiseHudUI() {
+      if (!localTeamId || !teamsState[localTeamId]) return;
+      const team = teamsState[localTeamId];
+      document.getElementById('hudTeamBadge').innerText = team.id;
+      document.getElementById('hudTeamBadge').style.background = team.color;
+      document.getElementById('hudTeamBadge').style.color = team.textColor;
+      document.getElementById('hudTeamTitle').innerText = team.name;
+      document.getElementById('hudOwnerTitle').innerText = 'Owner: ' + team.ownerName + (team.isHuman ? ' (You)' : '');
+      document.getElementById('hudRemainingPurse').innerText = formatCurrency(team.purse);
+      document.getElementById('hudSquadCount').innerText = team.squad.length + ' / 18';
+      document.getElementById('hudOverseasCount').innerText = team.overseasCount + ' / 6';
+      document.getElementById('maxAffordableHint').innerText = 'Max Allowed: ' + formatCurrency(calculateMaxAffordableBid(team));
+    }
+
+    function updateMembersUI() {
+      const humans = Object.values(teamsState).filter(t => t.isHuman).length;
+      document.getElementById('onlineCount').innerText = Math.max(1, humans);
+      const list = document.getElementById('membersList');
+      if (!list) return;
+      list.innerHTML = Object.values(teamsState).map(t => 
+        '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:rgba(255,255,255,0.04); border-radius:6px; border-left:3px solid ' + t.color + ';">' +
+          '<div><strong style="color:' + t.color + ';">' + t.id + '</strong> (' + t.name + ')</div>' +
+          '<div>' + (t.isHuman ? ('<span style="color:var(--accent-green);">● ' + t.ownerName + '</span>') : '<span style="color:var(--text-muted);">AI Bot</span>') + '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    function openMembersModal() {
+      updateMembersUI();
+      document.getElementById('membersModal').style.display = 'flex';
+    }
+    function closeMembersModal() { document.getElementById('membersModal').style.display = 'none'; }
 
     function openSquadsModal(sel = 'CSK') {
-      const code = sel || myTeamId || 'CSK';
-      document.getElementById('squadsModal').style.display = 'flex';
-      const tabs = document.getElementById('squadTabs');
+      const code = sel || localTeamId || 'CSK';
+      document.getElementById('squadExplorerModal').style.display = 'flex';
+      const tabs = document.getElementById('squadNavTabs');
       tabs.innerHTML = '';
-      Object.keys(TEAMS_META).forEach(id => {
+      TEAMS_CONFIG.forEach(t => {
         const b = document.createElement('button');
-        b.className = 'pill-btn' + (id === code ? ' active' : '');
-        b.innerText = id + ' (' + teams[id].squad.length + ')';
-        b.onclick = () => openSquadsModal(id);
+        b.className = 'slab-btn' + (t.id === code ? ' active' : '');
+        b.innerText = t.id + ' (' + teamsState[t.id].squad.length + ')';
+        b.onclick = () => openSquadsModal(t.id);
         tabs.appendChild(b);
       });
-      const t = teams[code];
-      document.getElementById('squadSummaryBar').innerHTML = '<strong>' + t.name + ' (' + t.owner + ')</strong><span>Purse Left: <strong style="color:var(--accent-green);">' + fmtCr(t.purse) + '</strong> | ✈️ ' + t.os + '/6</span>';
-      document.getElementById('squadPlayersList').innerHTML = t.squad.map((p, i) =>
+      const t = teamsState[code];
+      document.getElementById('squadExplorerHeaderCard').innerHTML = '<strong>' + t.name + ' (' + t.ownerName + ')</strong><span>Purse Left: <strong style="color:var(--accent-green);">' + formatCurrency(t.purse) + '</strong> | ✈️ ' + t.overseasCount + '/6</span>';
+      document.getElementById('squadExplorerContent').innerHTML = t.squad.map((p, i) =>
         '<div style="display:flex; justify-content:space-between; padding:6px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.8rem;">' +
-          '<span>' + (i + 1) + '. <strong>' + p.name + '</strong> (' + p.role + ') ' + (p.os ? '✈️' : '🇮🇳') + '</span>' +
-          '<strong style="color:var(--accent-green);">' + fmtCr(p.paid) + '</strong>' +
+          '<span>' + (i + 1) + '. <strong>' + p.name + '</strong> (' + p.role + ') ' + (p.overseas ? '✈️' : '🇮🇳') + '</span>' +
+          '<strong style="color:var(--accent-green);">' + formatCurrency(p.pricePaid) + '</strong>' +
         '</div>'
       ).join('') || '<div style="padding:14px; color:var(--text-muted);">No players signed yet.</div>';
     }
+    function closeSquadExplorerModal() { document.getElementById('squadExplorerModal').style.display = 'none'; }
 
     function openDeckModal(selSet = null) {
-      document.getElementById('deckModal').style.display = 'flex';
-      const sets = [...new Set(deck.map(p => p.set))];
-      const currentSet = selSet || (deck[curIdx] ? deck[curIdx].set : sets[0]);
-      const tabs = document.getElementById('deckSetTabs');
+      document.getElementById('upcomingModal').style.display = 'flex';
+      const sets = [...new Set(AUCTION_DECK.map(p => p.set))];
+      const currentSet = selSet || (AUCTION_DECK[currentPlayerIndex] ? AUCTION_DECK[currentPlayerIndex].set : sets[0]);
+      const tabs = document.getElementById('upcomingSetTabs');
       tabs.innerHTML = '';
       sets.forEach(s => {
         const b = document.createElement('button');
-        b.className = 'pill-btn' + (s === currentSet ? ' active' : '');
+        b.className = 'slab-btn' + (s === currentSet ? ' active' : '');
         b.innerText = s;
         b.onclick = () => openDeckModal(s);
         tabs.appendChild(b);
       });
-      document.getElementById('deckPlayersList').innerHTML = deck.map((p, idx) => ({ ...p, idx })).filter(p => p.set === currentSet).map(p =>
-        '<div style="display:flex; justify-content:space-between; padding:6px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.8rem; opacity:' + (p.idx < curIdx ? '0.4' : '1') + ';">' +
-          '<span>#' + (p.idx + 1) + ' <strong>' + p.name + '</strong> (' + p.role + ') ' + (p.os ? '✈️' : '🇮🇳') + (p.idx === curIdx ? ' 🔥 LIVE' : (p.idx < curIdx ? ' ✓ Done' : '')) + '</span>' +
-          '<span style="color:var(--accent-gold);">Base: ' + fmtCr(p.bp) + '</span>' +
+      document.getElementById('upcomingPlayersList').innerHTML = AUCTION_DECK.map((p, idx) => ({ ...p, idx })).filter(p => p.set === currentSet).map(p =>
+        '<div style="display:flex; justify-content:space-between; padding:6px; border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.8rem; opacity:' + (p.idx < currentPlayerIndex ? '0.4' : '1') + ';">' +
+          '<span>#' + (p.idx + 1) + ' <strong>' + p.name + '</strong> (' + p.role + ') ' + (p.overseas ? '✈️' : '🇮🇳') + (p.idx === currentPlayerIndex ? ' 🔥 LIVE' : (p.idx < currentPlayerIndex ? ' ✓ Done' : '')) + '</span>' +
+          '<span style="color:var(--accent-gold);">Base: ' + formatCurrency(p.bp) + '</span>' +
         '</div>'
       ).join('');
     }
+    function closeUpcomingModal() { document.getElementById('upcomingModal').style.display = 'none'; }
 
-    function openEndScreen() {
-      clearInterval(timerRef);
-      document.getElementById('endModal').style.display = 'flex';
-      document.getElementById('finalGrid').innerHTML = Object.values(teams).map(t =>
+    function openEndGameModal() {
+      document.getElementById('endGameModal').style.display = 'flex';
+      document.getElementById('finalSquadsGrid').innerHTML = Object.values(teamsState).map(t =>
         '<div style="background:rgba(255,255,255,0.03); border:1px solid var(--panel-border); border-radius:8px; padding:10px;">' +
-          '<div style="font-weight:700; color:var(--accent-gold); border-bottom:1px solid var(--panel-border); padding-bottom:4px; margin-bottom:6px; display:flex; justify-content:space-between;">' +
-            '<span>' + t.name + ' (' + t.owner + ')</span><span>' + fmtCr(t.purse) + '</span>' +
+          '<div style="font-weight:700; color:' + t.color + '; border-bottom:1px solid var(--panel-border); padding-bottom:4px; margin-bottom:6px; display:flex; justify-content:space-between;">' +
+            '<span>' + t.name + ' (' + t.ownerName + ')</span><span>' + formatCurrency(t.purse) + '</span>' +
           '</div>' +
-          (t.squad.map((p, i) => '<div style="display:flex; justify-content:space-between; font-size:0.75rem; padding:2px 0;"><span>' + (i+1) + '. ' + p.name + '</span><strong>' + fmtCr(p.paid) + '</strong></div>').join('') || '<div style="font-size:0.75rem; color:var(--text-muted);">Empty squad</div>') +
+          (t.squad.map((p, i) => '<div style="display:flex; justify-content:space-between; font-size:0.75rem; padding:2px 0;"><span>' + (i+1) + '. ' + p.name + '</span><strong>' + formatCurrency(p.pricePaid) + '</strong></div>').join('') || '<div style="font-size:0.75rem; color:var(--text-muted);">Empty squad</div>') +
         '</div>'
       ).join('');
     }
-
-    function addFeed(sender, text) {
-      const box = document.getElementById('msgList');
-      box.innerHTML += '<div class="msg-item"><strong>' + sender + ':</strong> ' + text + '</div>';
-      box.scrollTop = box.scrollHeight;
-    }
-
-    function sendChat() {
-      const inp = document.getElementById('chatInput');
-      const txt = inp.value.trim();
-      if (!txt) return;
-      const who = myTeamId ? (myTeamId + ' (' + myName + ')') : 'Spectator';
-      addFeed(who, txt);
-      sendNet({ type: 'CHAT', sender: who, text: txt });
-      inp.value = '';
-    }
+    function closeEndGameModal() { document.getElementById('endGameModal').style.display = 'none'; }
 
     function copyInviteLink() {
-      const u = window.location.origin + window.location.pathname + '?room=' + roomId;
-      navigator.clipboard.writeText(u);
-      alert('Invite Link Copied: ' + u);
+      const url = window.location.origin + window.location.pathname + '?room=' + roomId;
+      navigator.clipboard.writeText(url);
+      alert("Invite link copied! Share this with other managers:
+" + url);
     }
 
-    function saveState() {
-      if (window.__resetting) return;
-      localStorage.setItem('ipl_v6_state', JSON.stringify({
-        roomId, myTeamId, myName, isHost, teams, deck, curIdx, maxTimer, running
-      }));
-    }
-
-    function loadState() {
-      const raw = localStorage.getItem('ipl_v6_state');
-      if (!raw) return false;
-      try {
-        const s = JSON.parse(raw);
-        if (s && s.myTeamId && s.deck && s.deck.length > 0) {
-          roomId = s.roomId; myTeamId = s.myTeamId; myName = s.myName; isHost = s.isHost;
-          teams = s.teams; deck = s.deck; curIdx = s.curIdx; maxTimer = s.maxTimer || 15; running = s.running;
-          document.getElementById('lobbyModal').style.display = 'none';
-          updateUI();
-          setupNetworking();
-          if (isHost && running) startLot(curIdx);
-          return true;
-        }
-      } catch(e) {}
-      return false;
-    }
-
-    function resetGame() {
-      if (confirm('Clear saved game and start a fresh room?')) {
-        window.__resetting = true;
-        localStorage.removeItem('ipl_v6_state');
+    function resetRoom() {
+      if (confirm("Reset current room and start fresh?")) {
+        if (peer) { try { peer.destroy(); } catch(e){} }
+        localStorage.clear();
         window.location.replace(window.location.origin + window.location.pathname);
       }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      if (!loadState()) {
-        deck = buildDeck(RAW_PLAYERS_DATA);
-        updateUI();
+    function logMessage(sender, text) {
+      const c = document.getElementById('messagesArea');
+      if (c) {
+        c.innerHTML += '<div class="msg-item"><strong style="color:var(--accent-gold);">' + sender + ':</strong> ' + text + '</div>';
+        c.scrollTop = c.scrollHeight;
       }
+    }
+
+    function sendChatMessage() {
+      const inp = document.getElementById('chatInput');
+      const text = inp.value.trim();
+      if (!text) return;
+      const sender = localTeamId ? (teamsState[localTeamId].name + ' (' + localOwnerName + ')') : 'Spectator';
+      logMessage(sender, text);
+      if (isHost) broadcastFromHost({ type: 'CHAT', sender: sender, text: text });
+      else if (hostConnection && hostConnection.open) hostConnection.send({ type: 'CHAT', sender: sender, text: text });
+      inp.value = '';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Prompt modal always shows up cleanly on fresh visits
+      document.getElementById('teamSelectModal').style.display = 'flex';
     });
   </script>
 </body>
