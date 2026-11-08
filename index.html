@@ -709,6 +709,17 @@
     let urlRoom = urlParams.get('room') ? urlParams.get('room').toLowerCase().trim() : null;
     let roomId = (urlRoom || ('ipl-' + Math.random().toString(36).substring(2, 7))).toLowerCase().trim();
 
+    // WebRTC STUN servers for seamless mobile carrier (4G/5G/Wi-Fi) peer connectivity
+    const PEER_CONFIG = {
+      debug: 1,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      }
+    };
+    
     function formatCurrency(lakhs) {
       if (lakhs >= 100) return '₹' + (lakhs / 100).toFixed(2) + ' Cr';
       return '₹' + lakhs + ' Lakhs';
@@ -782,8 +793,13 @@
 
       if (isHost) {
         document.getElementById('hostControlsPanel').style.display = 'flex';
-        peer = new Peer(roomId, { debug: 1 });
-        
+        // Always push room code to browser URL so refreshing preserves the exact room
+        if (!window.location.search.includes('room=')) {
+          window.history.replaceState({}, '', window.location.pathname + '?room=' + roomId);
+        }
+
+        peer = new Peer(roomId, PEER_CONFIG);
+
         peer.on('open', () => {
           dot.className = 'status-dot';
           logMessage('System', 'War room created by Host! Room: ' + roomId.toUpperCase());
@@ -793,13 +809,11 @@
 
         peer.on('error', err => {
           console.error("Host Peer Error:", err);
-          if (err.type === 'unavailable-id') {
-            alert("Room code already in use. Please click 'New Game' to start a fresh room.");
-          }
         });
 
         peer.on('connection', conn => {
           clientConnections.push(conn);
+
           const sendSync = () => {
             conn.send({
               type: 'FULL_SYNC',
@@ -814,7 +828,6 @@
             });
           };
 
-          // Safe check: if connection is already open, send immediately
           if (conn.open) sendSync();
           else conn.on('open', sendSync);
 
@@ -828,7 +841,8 @@
       } else {
         document.getElementById('hostControlsPanel').style.display = 'none';
         const clientPeerId = (roomId + '-client-' + Math.random().toString(36).substring(2, 6)).toLowerCase();
-        peer = new Peer(clientPeerId, { debug: 1 });
+        
+        peer = new Peer(clientPeerId, PEER_CONFIG);
 
         peer.on('open', () => {
           hostConnection = peer.connect(roomId, { reliable: true });
@@ -855,7 +869,7 @@
           console.error("Client Peer Error:", err);
           dot.className = 'status-dot paused';
           if (err.type === 'peer-unavailable') {
-            alert("Host room not found! Make sure the host is currently online in room: " + roomId.toUpperCase());
+            alert("Host room not found! Make sure the host has already started the room: " + roomId.toUpperCase());
           }
         });
       }
@@ -1397,12 +1411,14 @@
       }));
     }
 
-    function tryRestoreSession() {
+      function tryRestoreSession() {
       const raw = localStorage.getItem(STORAGE_KEY_SESSION);
       if (!raw) return false;
       try {
         const s = JSON.parse(raw);
-        if (s && s.localTeamId && s.roomId === roomId) {
+        // If restoring a session, adopt the saved room ID even if URL search was empty
+        if (s && s.localTeamId && (s.roomId === roomId || !urlRoom)) {
+          roomId = s.roomId.toLowerCase().trim();
           localTeamId = s.localTeamId;
           localOwnerName = s.localOwnerName || "Manager";
           isHost = Boolean(s.isHost);
@@ -1410,6 +1426,9 @@
           currentPlayerIndex = s.currentPlayerIndex || 0;
           configuredTimerDuration = s.configuredTimerDuration || 15;
           isAuctionRunning = Boolean(s.isAuctionRunning);
+
+          // Keep browser URL synchronized with the active room
+          window.history.replaceState({}, '', window.location.pathname + '?room=' + roomId);
 
           document.getElementById('teamSelectModal').style.display = 'none';
           updateSpotlightUI();
