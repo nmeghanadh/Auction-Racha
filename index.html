@@ -789,26 +789,46 @@
 
     function initNetwork() {
       const dot = document.getElementById('networkDot');
-      document.getElementById('roomStatusText').innerText = roomId.toUpperCase() + (isHost ? ' (Host)' : '');
+      const cleanRoom = roomId.toLowerCase().trim(); // Guarantees 100% case-matching
+      document.getElementById('roomStatusText').innerText = cleanRoom.toUpperCase() + (isHost ? ' (Host)' : '');
+
+      const PEER_OPTS = {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
+      };
 
       if (isHost) {
         document.getElementById('hostControlsPanel').style.display = 'flex';
-        // Always push room code to browser URL so refreshing preserves the exact room
         if (!window.location.search.includes('room=')) {
-          window.history.replaceState({}, '', window.location.pathname + '?room=' + roomId);
+          window.history.replaceState({}, '', window.location.pathname + '?room=' + cleanRoom);
         }
 
-        peer = new Peer(roomId, PEER_CONFIG);
+        peer = new Peer(cleanRoom, PEER_OPTS);
 
         peer.on('open', () => {
           dot.className = 'status-dot';
-          logMessage('System', 'War room created by Host! Room: ' + roomId.toUpperCase());
+          logMessage('System', 'War room created by Host! Room: ' + cleanRoom.toUpperCase());
           updateMembersUI();
           saveCurrentSession();
         });
 
+        // Automatically reconnect if phone went to sleep / switched to WhatsApp
+        peer.on('disconnected', () => {
+          dot.className = 'status-dot paused';
+          peer.reconnect();
+        });
+
         peer.on('error', err => {
           console.error("Host Peer Error:", err);
+          if (err.type === 'unavailable-id') {
+            dot.className = 'status-dot paused';
+            alert("Room ID already in use or still releasing. Please wait 10 seconds or tap 'New Game'.");
+          }
         });
 
         peer.on('connection', conn => {
@@ -840,12 +860,14 @@
 
       } else {
         document.getElementById('hostControlsPanel').style.display = 'none';
-        const clientPeerId = (roomId + '-client-' + Math.random().toString(36).substring(2, 6)).toLowerCase();
-        
-        peer = new Peer(clientPeerId, PEER_CONFIG);
+        const clientPeerId = (cleanRoom + '-c-' + Math.random().toString(36).substring(2, 6)).toLowerCase();
+        peer = new Peer(clientPeerId, PEER_OPTS);
 
-        peer.on('open', () => {
-          hostConnection = peer.connect(roomId, { reliable: true });
+        let retryCount = 0;
+        const maxRetries = 4;
+
+        function connectToHost() {
+          hostConnection = peer.connect(cleanRoom, { reliable: true });
 
           const sendJoin = () => {
             dot.className = 'status-dot';
@@ -861,18 +883,40 @@
           hostConnection.on('data', data => handleClientIncomingData(data));
           hostConnection.on('close', () => {
             dot.className = 'status-dot paused';
-            logMessage('System', 'Lost connection to host.');
+            logMessage('System', 'Lost connection to host. Reconnecting...');
           });
+        }
+
+        peer.on('open', () => {
+          connectToHost();
+        });
+
+        peer.on('disconnected', () => {
+          dot.className = 'status-dot paused';
+          peer.reconnect();
         });
 
         peer.on('error', err => {
           console.error("Client Peer Error:", err);
-          dot.className = 'status-dot paused';
           if (err.type === 'peer-unavailable') {
-            alert("Host room not found! Make sure the host has already started the room: " + roomId.toUpperCase());
+            if (retryCount < maxRetries) {
+              retryCount++;
+              dot.className = 'status-dot paused';
+              logMessage('System', 'Connecting to host (Attempt ' + retryCount + '/' + maxRetries + ')...');
+              setTimeout(connectToHost, 1500); // Auto-retry while host phone wakes up
+            } else {
+              alert("Host room not found! Make sure the host has the Auction page open on their phone screen: " + cleanRoom.toUpperCase());
+            }
           }
         });
       }
+
+      // Wake up WebSockets whenever user switches back into the browser tab
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && peer && peer.disconnected) {
+          peer.reconnect();
+        }
+      });
     }
 
     function broadcastFromHost(payload) {
@@ -1487,7 +1531,9 @@
 
     window.addEventListener('beforeunload', () => {
       saveCurrentSession();
+      if (peer) { try { peer.destroy(); } catch(e){} }
     });
+
   </script>
 </body>
 </html>
