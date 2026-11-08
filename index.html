@@ -755,6 +755,18 @@
       return finalDeck;
     }
 
+        // Only build and shuffle a new deck if one isn't already saved in session
+    const existingSession = localStorage.getItem(STORAGE_KEY_SESSION);
+    let preloadedDeck = null;
+    if (existingSession) {
+      try {
+        const parsed = JSON.parse(existingSession);
+        if (parsed.AUCTION_DECK && parsed.AUCTION_DECK.length > 0) {
+          preloadedDeck = parsed.AUCTION_DECK;
+        }
+      } catch (e) {}
+    }
+
     AUCTION_DECK = buildAuctionDeck(RAW_PLAYERS_153);
     if (AUCTION_DECK.length > 0) selectedUpcomingSet = AUCTION_DECK[0].set;
 
@@ -1451,16 +1463,15 @@
     function saveCurrentSession() {
       if (window.__isHardResetting) return;
       localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify({
-        roomId, localTeamId, localOwnerName, isHost, teamsState, currentPlayerIndex, configuredTimerDuration, isAuctionRunning
+        roomId, localTeamId, localOwnerName, isHost, teamsState, currentPlayerIndex, configuredTimerDuration, isAuctionRunning, AUCTION_DECK
       }));
     }
 
-      function tryRestoreSession() {
+    function tryRestoreSession() {
       const raw = localStorage.getItem(STORAGE_KEY_SESSION);
       if (!raw) return false;
       try {
         const s = JSON.parse(raw);
-        // If restoring a session, adopt the saved room ID even if URL search was empty
         if (s && s.localTeamId && (s.roomId === roomId || !urlRoom)) {
           roomId = s.roomId.toLowerCase().trim();
           localTeamId = s.localTeamId;
@@ -1470,9 +1481,15 @@
           currentPlayerIndex = s.currentPlayerIndex || 0;
           configuredTimerDuration = s.configuredTimerDuration || 15;
           isAuctionRunning = Boolean(s.isAuctionRunning);
+          
+          // Lock in the exact saved player deck sequence across refreshes
+          if (s.AUCTION_DECK && s.AUCTION_DECK.length > 0) {
+            AUCTION_DECK = s.AUCTION_DECK;
+          }
 
-          // Keep browser URL synchronized with the active room
-          window.history.replaceState({}, '', window.location.pathname + '?room=' + roomId);
+          if (!window.location.search.includes('room=')) {
+            window.history.replaceState({}, '', window.location.pathname + '?room=' + roomId);
+          }
 
           document.getElementById('teamSelectModal').style.display = 'none';
           updateSpotlightUI();
