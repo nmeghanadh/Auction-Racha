@@ -706,8 +706,8 @@
     let selectedUpcomingSet = '';
 
     const urlParams = new URLSearchParams(window.location.search);
-    let urlRoom = urlParams.get('room');
-    let roomId = urlRoom || ('ipl-' + Math.random().toString(36).substring(2, 7));
+    let urlRoom = urlParams.get('room') ? urlParams.get('room').toLowerCase().trim() : null;
+    let roomId = (urlRoom || ('ipl-' + Math.random().toString(36).substring(2, 7))).toLowerCase().trim();
 
     function formatCurrency(lakhs) {
       if (lakhs >= 100) return '₹' + (lakhs / 100).toFixed(2) + ' Cr';
@@ -783,15 +783,24 @@
       if (isHost) {
         document.getElementById('hostControlsPanel').style.display = 'flex';
         peer = new Peer(roomId, { debug: 1 });
+        
         peer.on('open', () => {
           dot.className = 'status-dot';
-          logMessage('System', 'War room created by Host! Invite code: ' + roomId.toUpperCase());
+          logMessage('System', 'War room created by Host! Room: ' + roomId.toUpperCase());
           updateMembersUI();
           saveCurrentSession();
         });
+
+        peer.on('error', err => {
+          console.error("Host Peer Error:", err);
+          if (err.type === 'unavailable-id') {
+            alert("Room code already in use. Please click 'New Game' to start a fresh room.");
+          }
+        });
+
         peer.on('connection', conn => {
           clientConnections.push(conn);
-          conn.on('open', () => {
+          const sendSync = () => {
             conn.send({
               type: 'FULL_SYNC',
               teamsState: teamsState,
@@ -803,31 +812,51 @@
               timerValue: timerValue,
               sealedCount: Object.keys(secretBidsMap).length
             });
-          });
+          };
+
+          // Safe check: if connection is already open, send immediately
+          if (conn.open) sendSync();
+          else conn.on('open', sendSync);
+
           conn.on('data', data => handleHostIncomingData(conn, data));
           conn.on('close', () => {
             clientConnections = clientConnections.filter(c => c !== conn);
             updateMembersUI();
           });
         });
+
       } else {
         document.getElementById('hostControlsPanel').style.display = 'none';
-        const clientPeerId = roomId + '-client-' + Math.random().toString(36).substring(2, 6);
+        const clientPeerId = (roomId + '-client-' + Math.random().toString(36).substring(2, 6)).toLowerCase();
         peer = new Peer(clientPeerId, { debug: 1 });
+
         peer.on('open', () => {
           hostConnection = peer.connect(roomId, { reliable: true });
-          hostConnection.on('open', () => {
+
+          const sendJoin = () => {
             dot.className = 'status-dot';
             logMessage('System', 'Connected to war room host!');
             if (localTeamId) {
               hostConnection.send({ type: 'JOIN_TEAM', teamId: localTeamId, name: localOwnerName });
             }
-          });
+          };
+
+          if (hostConnection.open) sendJoin();
+          else hostConnection.on('open', sendJoin);
+
           hostConnection.on('data', data => handleClientIncomingData(data));
           hostConnection.on('close', () => {
             dot.className = 'status-dot paused';
             logMessage('System', 'Lost connection to host.');
           });
+        });
+
+        peer.on('error', err => {
+          console.error("Client Peer Error:", err);
+          dot.className = 'status-dot paused';
+          if (err.type === 'peer-unavailable') {
+            alert("Host room not found! Make sure the host is currently online in room: " + roomId.toUpperCase());
+          }
         });
       }
     }
@@ -1134,8 +1163,8 @@
 
       if (urlRoom || selectedLobbyMode === 'join') {
         isHost = false;
-        const joinId = document.getElementById('joinRoomIdInput').value.trim();
-        roomId = urlRoom || joinId || roomId;
+        const joinId = document.getElementById('joinRoomIdInput').value.trim().toLowerCase();
+        roomId = (urlRoom || joinId || roomId).toLowerCase().trim();
       } else {
         isHost = true;
       }
@@ -1427,10 +1456,11 @@
         if (urlRoom) {
           selectedLobbyMode = 'join';
           isHost = false;
-          roomId = urlRoom;
+          roomId = urlRoom.toLowerCase().trim();
           document.getElementById('modeHostBtn').style.display = 'none';
-          document.getElementById('modeJoinBtn').innerText = '🔗 Room: ' + urlRoom.toUpperCase();
+          document.getElementById('modeJoinBtn').innerText = '🔗 Joining Room: ' + urlRoom.toUpperCase();
           document.getElementById('modeJoinBtn').classList.add('active');
+          document.getElementById('joinRoomInputArea').style.display = 'none';
         }
         document.getElementById('teamSelectModal').style.display = 'flex';
       }
